@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --bg: var(--figma-color-bg, #ffffff);
+    --bg-2: var(--figma-color-bg-secondary, #f5f5f5);
+    --bg-3: var(--figma-color-bg-tertiary, #e9e9e9);
+    --bg-hover: var(--figma-color-bg-hover, rgba(0,0,0,0.06));
+    --bg-sel: var(--figma-color-bg-selected, #e5f0ff);
+    --brand: var(--figma-color-bg-brand, #0d99ff);
+    --icon: var(--figma-color-icon, #333333);
+    --icon-muted: var(--figma-color-icon-secondary, #8a8a8a);
+    --text: var(--figma-color-text, #1a1a1a);
+    --muted: var(--figma-color-text-secondary, #8a8a8a);
+    --stroke: var(--figma-color-border, #e6e6e6);
+    --input: var(--figma-color-bg-secondary, #f5f5f5);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; height: 100%;
+    font-family: Inter, -apple-system, "Segoe UI", sans-serif;
+    font-size: 11px; line-height: 16px;
+    color: var(--text); background: var(--bg);
+    -webkit-user-select: none; user-select: none;
+  }
+  body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  .i { width: 16px; height: 16px; display: block; }
+
+  /* ---------- body ---------- */
+  #body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
+  #empty {
+    display: flex; align-items: center; justify-content: center; height: 100%;
+    color: var(--muted); text-align: center; padding: 24px;
+  }
+
+  .section { border-bottom: 1px solid var(--stroke); }
+  .sec-head {
+    display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 8px 0 6px; cursor: pointer;
+  }
+  .sec-head:hover .caret { color: var(--text); }
+  .caret { width: 16px; height: 16px; color: var(--icon-muted); transform: rotate(90deg); transition: transform .12s; }
+  .section.collapsed .caret { transform: rotate(0deg); }
+  .sec-title { font-weight: 600; flex: 1 1 auto; }
+  .sec-body { padding: 4px 8px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .section.collapsed .sec-body { display: none; }
+
+  .group { display: flex; flex-direction: column; gap: 4px; }
+  .sublabel { color: var(--muted); font-size: 10px; }
+
+  .row-grid { display: grid; gap: 8px; }
+  .row-flex { display: flex; gap: 6px; align-items: center; }
+  .row-flex .field { flex: 1 1 auto; }
+
+  /* ---------- fields ---------- */
+  .field {
+    display: flex; align-items: center; height: 28px; min-width: 0;
+    background: var(--input); border: 1px solid transparent; border-radius: 5px;
+    padding: 0 6px; gap: 4px;
+  }
+  .field:hover { border-color: var(--stroke); }
+  .field:focus-within { border-color: var(--brand); background: var(--bg); }
+  .field .lead { display: flex; align-items: center; color: var(--icon-muted); flex: 0 0 auto; }
+  .field .lead .i { width: 14px; height: 14px; }
+  .lead-tx { width: 14px; text-align: center; color: var(--muted); font-size: 11px; }
+  .field input {
+    flex: 1 1 auto; min-width: 0; width: 100%; height: 100%;
+    border: none; background: transparent; outline: none; color: var(--text);
+    font-family: inherit; font-size: 11px; padding: 0;
+  }
+  .field .suf { color: var(--muted); flex: 0 0 auto; }
+  .field input::placeholder { color: var(--muted); }
+  .field .szsel {
+    flex: 0 0 auto; width: auto; height: 20px; padding: 0 2px 0 4px; margin-right: -4px;
+    background: transparent; border: none; border-radius: 3px; color: var(--icon-muted);
+    font-family: inherit; font-size: 11px; outline: none; cursor: pointer; appearance: none;
+  }
+  .field .szsel:hover { background: var(--bg-hover); color: var(--text); }
+
+  select {
+    height: 28px; width: 100%; min-width: 0; padding: 0 6px;
+    background: var(--input); color: var(--text);
+    border: 1px solid transparent; border-radius: 5px;
+    font-family: inherit; font-size: 11px; outline: none; cursor: pointer;
+  }
+  select:hover { border-color: var(--stroke); }
+  select:focus { border-color: var(--brand); }
+
+  /* ---------- segmented icon buttons ---------- */
+  .seg { display: flex; background: var(--input); border-radius: 5px; padding: 2px; gap: 2px; }
+  .seg.grow { flex: 1 1 auto; }
+  .seg-btn {
+    flex: 1 1 auto; height: 24px; min-width: 24px;
+    border: none; background: transparent; color: var(--icon); cursor: pointer;
+    border-radius: 4px; display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .seg-btn:hover { background: var(--bg-hover); }
+  .seg-btn.active { background: var(--bg); color: var(--text); box-shadow: 0 0 0 1px var(--stroke); }
+
+  .icon-btn {
+    width: 28px; height: 28px; flex: 0 0 auto;
+    border: 1px solid transparent; background: var(--input); color: var(--icon);
+    cursor: pointer; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { border-color: var(--stroke); }
+  .icon-btn:active { background: var(--bg-3); }
+  .icon-btn.active { background: var(--bg-sel); color: var(--brand); border-color: transparent; }
+  .icon-btn.lock { width: 22px; background: transparent; }
+  .icon-btn.lock:hover { background: var(--bg-hover); border-color: transparent; }
+
+  .tag { width: 14px; flex: 0 0 auto; text-align: center; color: var(--muted); }
+
+  /* ---------- checkbox row ---------- */
+  .check-row { display: flex; align-items: center; gap: 8px; height: 24px; }
+  .check-row input { width: 14px; height: 14px; accent-color: var(--brand); cursor: pointer; margin: 0; }
+  .check-lab { color: var(--text); }
+
+  /* ---------- color row ---------- */
+  .color-row { display: flex; align-items: center; gap: 6px; height: 28px;
+    background: var(--input); border: 1px solid transparent; border-radius: 5px; padding: 0 6px; }
+  .color-row:hover { border-color: var(--stroke); }
+  .color-row:focus-within { border-color: var(--brand); background: var(--bg); }
+  .swatch {
+    width: 16px; height: 16px; flex: 0 0 auto; border-radius: 3px; cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); position: relative; padding: 0; border: none;
+    background-image: linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%);
+    background-size: 8px 8px; background-position: 0 0,0 4px,4px -4px,-4px 0;
+  }
+  .swatch .picker { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; border: none; padding: 0; cursor: pointer; }
+  .color-row .hex {
+    flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
+    color: var(--text); font-family: inherit; font-size: 11px; text-transform: uppercase;
+  }
+  .color-row .op { width: 56px; flex: 0 0 auto; height: 24px; background: transparent; border: none; padding: 0; }
+  .color-row .op:hover { border: none; }
+
+  /* ---------- alignment pad ---------- */
+  .pad-wrap { display: flex; gap: 8px; align-items: center; }
+  .pad { display: grid; grid-template-columns: repeat(3,1fr); width: 56px; height: 56px;
+    background: var(--input); border-radius: 5px; padding: 4px; flex: 0 0 auto; }
+  .pad-wrap .field { flex: 1 1 auto; }
+  .pad-cell { border: none; background: transparent; cursor: pointer; border-radius: 3px; position: relative; padding: 0; }
+  .pad-cell::after { content:""; position:absolute; left:50%; top:50%; width:5px; height:5px; border-radius:50%;
+    transform: translate(-50%,-50%); background: var(--icon-muted); opacity: .5; }
+  .pad-cell:hover { background: var(--bg-hover); }
+  .pad-cell.active::after { width: 7px; height: 7px; background: var(--brand); opacity: 1; }
+
+  .hidden { display: none !important; }
+
+  /* ---------- footer / resize ---------- */
+  #footer { flex: 0 0 auto; height: 16px; position: relative; background: var(--bg); }
+  #resize { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+  #resize::after { content:""; position:absolute; right:3px; bottom:3px; width:7px; height:7px;
+    border-right: 1.5px solid var(--icon-muted); border-bottom: 1.5px solid var(--icon-muted); }
+</style>
+</head>
+<body>
+  <div id="body">
+    <div id="empty">Select a layer to inspect and edit its properties.</div>
+    <div id="sections"></div>
+  </div>
+  <div id="footer"><div id="resize" title="Resize"></div></div>
+
+<script>
+  const post = (m) => parent.postMessage({ pluginMessage: m }, "*");
+  const apply = (field, value) => post({ type: "apply", field, value });
+  const cmd = (name) => post({ type: "command", name });
+  const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
+  const cap = (s) => s ? s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ") : s;
+
+  // ---------- icons (16px, Figma-style line icons) ----------
+  const S = (inner) => `<svg class="i" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+  const bars = (guide, b1, b2) => S(`<path d="${guide}"/><rect ${b1} rx="1" fill="currentColor" stroke="none"/><rect ${b2} rx="1" fill="currentColor" stroke="none"/>`);
+  const ICONS = {
+    caret: S('<path d="M6 4l4 4-4 4"/>'),
+    alignLeft: bars("M2.5 2.5v11", 'x="4.5" y="4.5" width="8" height="2.5"', 'x="4.5" y="9" width="5" height="2.5"'),
+    alignHCenter: bars("M8 2.5v11", 'x="3.5" y="4.5" width="9" height="2.5"', 'x="5.5" y="9" width="5" height="2.5"'),
+    alignRight: bars("M13.5 2.5v11", 'x="3" y="4.5" width="8" height="2.5"', 'x="6" y="9" width="5" height="2.5"'),
+    alignTop: bars("M2.5 2.5h11", 'x="4.5" y="4.5" width="2.5" height="8"', 'x="9" y="4.5" width="2.5" height="5"'),
+    alignVCenter: bars("M2.5 8h11", 'x="4.5" y="3.5" width="2.5" height="9"', 'x="9" y="5.5" width="2.5" height="5"'),
+    alignBottom: bars("M2.5 13.5h11", 'x="4.5" y="3" width="2.5" height="8"', 'x="9" y="6" width="2.5" height="5"'),
+    flipH: S('<path d="M8 2v12" stroke-dasharray="2 1.6"/><path d="M6 4.5L2.5 8 6 11.5z" fill="currentColor" stroke="none"/><path d="M10 4.5L13.5 8 10 11.5z"/>'),
+    flipV: S('<path d="M2 8h12" stroke-dasharray="2 1.6"/><path d="M4.5 6L8 2.5 11.5 6z" fill="currentColor" stroke="none"/><path d="M4.5 10L8 13.5 11.5 10z"/>'),
+    rotation: S('<path d="M3 13a8 8 0 0 1 7.5-8"/><path d="M3 9.5V13h3.5"/>'),
+    corner: S('<path d="M3.5 13.5V8a4.5 4.5 0 0 1 4.5-4.5h5.5"/>'),
+    cornerTL: S('<path d="M3 13.5V7.5A4.5 4.5 0 0 1 7.5 3h6"/>'),
+    cornerTR: S('<path d="M13 13.5V7.5A4.5 4.5 0 0 0 8.5 3h-6"/>'),
+    cornerBL: S('<path d="M3 2.5v6A4.5 4.5 0 0 0 7.5 13h6"/>'),
+    cornerBR: S('<path d="M13 2.5v6A4.5 4.5 0 0 1 8.5 13h-6"/>'),
+    cornerSides: S('<path d="M5.5 3H4.5A1.5 1.5 0 0 0 3 4.5v1M10.5 3h1A1.5 1.5 0 0 1 13 4.5v1M13 10.5v1a1.5 1.5 0 0 1-1.5 1.5h-1M3 10.5v1A1.5 1.5 0 0 0 4.5 13h1"/>'),
+    lockOn: S('<rect x="3.5" y="7" width="9" height="5.5" rx="1.2"/><path d="M5.5 7V5.4a2.5 2.5 0 0 1 5 0V7"/>'),
+    lockOff: S('<rect x="3.5" y="7" width="9" height="5.5" rx="1.2"/><path d="M5.5 7V5.4a2.5 2.5 0 0 1 4.7-1.2"/>'),
+    opacity: S('<circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" stroke="none"/>'),
+    weight: S('<path d="M2 4h12M2 8h12M2 12h12" stroke-width="1.4"/>'),
+    szFixed: S('<path d="M4 4v8M12 4v8"/><path d="M6 8h4"/>'),
+    szHug: S('<path d="M4 5l3 3-3 3"/><path d="M12 5l-3 3 3 3"/>'),
+    szFill: S('<path d="M7 5L4 8l3 3"/><path d="M9 5l3 3-3 3"/><path d="M4.5 8h7" stroke-dasharray="1.5 1.5"/>'),
+    padSides: S('<rect x="3" y="3" width="10" height="10" rx="1.5"/><rect x="6" y="6" width="4" height="4" rx="1" stroke-dasharray="1.2 1.2"/>'),
+    flowNone: S('<circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="5" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="11" cy="11" r="1.2" fill="currentColor" stroke="none"/>'),
+    flowH: S('<rect x="3" y="4" width="4" height="8" rx="1" fill="currentColor" stroke="none"/><rect x="9" y="4" width="4" height="8" rx="1" fill="currentColor" stroke="none"/>'),
+    flowV: S('<rect x="4" y="3" width="8" height="4" rx="1" fill="currentColor" stroke="none"/><rect x="4" y="9" width="8" height="4" rx="1" fill="currentColor" stroke="none"/>'),
+    wrap: S('<rect x="3" y="3" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><rect x="9" y="3" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><rect x="3" y="9" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><rect x="9" y="9" width="4" height="4" rx="1" fill="currentColor" stroke="none"/>'),
+    padV: S('<path d="M3 3h10M3 13h10"/><rect x="5" y="6" width="6" height="4" rx="1"/>'),
+    padH: S('<path d="M3 3v10M13 3v10"/><rect x="6" y="5" width="4" height="6" rx="1"/>'),
+    gap: S('<rect x="2" y="4" width="4" height="8" rx="1"/><rect x="10" y="4" width="4" height="8" rx="1"/><path d="M8 6v4"/>'),
+    taL: S('<path d="M2 4h12M2 8h8M2 12h10"/>'),
+    taC: S('<path d="M2 4h12M4 8h8M3 12h10"/>'),
+    taR: S('<path d="M2 4h12M6 8h8M4 12h10"/>'),
+    taJ: S('<path d="M2 4h12M2 8h12M2 12h12"/>'),
+  };
+
+  const sections = [];
+
+  function makeSection(title, collapsed) {
+    const wrap = el("div", "section" + (collapsed ? " collapsed" : ""));
+    const head = el("div", "sec-head");
+    const caret = el("span", "caret"); caret.innerHTML = ICONS.caret;
+    const t = el("div", "sec-title"); t.textContent = title;
+    head.append(caret, t);
+    const body = el("div", "sec-body");
+    head.onclick = () => wrap.classList.toggle("collapsed");
+    wrap.append(head, body);
+    const sec = { wrap, body, blocks: [], add(b) { body.appendChild(b.el); this.blocks.push(b); return b; } };
+    sections.push(sec);
+    return sec;
+  }
+
+  // ---------- control builders (each returns { el, update(snap)->visibleBool } ) ----------
+  const isFocused = (n) => document.activeElement === n;
+
+  // safe recursive-descent math evaluator (no eval) — supports + - * / ^ ( ) and decimals
+  function parseMath(str) {
+    const s = str.replace(/\s+/g, ""); let i = 0;
+    const peek = () => s[i];
+    function expr() { let v = term(); while (peek() === "+" || peek() === "-") { const op = s[i++]; const t = term(); v = op === "+" ? v + t : v - t; } return v; }
+    function term() { let v = power(); while (peek() === "*" || peek() === "/") { const op = s[i++]; const p = power(); v = op === "*" ? v * p : v / p; } return v; }
+    function power() { let v = unary(); if (peek() === "^") { i++; v = Math.pow(v, power()); } return v; }
+    function unary() { if (peek() === "+") { i++; return unary(); } if (peek() === "-") { i++; return -unary(); } return primary(); }
+    function primary() { if (peek() === "(") { i++; const v = expr(); if (peek() === ")") i++; return v; } let n = ""; while (i < s.length && /[0-9.]/.test(s[i])) n += s[i++]; if (n === "") throw new Error("parse"); return parseFloat(n); }
+    const r = expr(); if (i < s.length) throw new Error("trailing"); return r;
+  }
+
+  // evaluate a field value, allowing equations relative to the current value (Figma behaviour)
+  function evalExpr(raw, current) {
+    let s = String(raw).trim(); if (s === "") return "";
+    const cur = current == null || current === "" || isNaN(parseFloat(current)) ? 0 : parseFloat(current);
+    if (/^[-+*/^]/.test(s)) s = cur + s;            // leading operator -> apply to current value
+    s = s.replace(/x/gi, "(" + cur + ")");           // x = current value
+    try { const v = parseMath(s); return isFinite(v) ? Math.round(v * 100) / 100 : ""; }
+    catch (_) { const f = parseFloat(s); return isNaN(f) ? "" : f; }
+  }
+
+  // read raw input, evaluate equation against the stored current value, hand result to send()
+  function commitNum(input, send) {
+    const raw = input.value.trim();
+    if (raw === "") { send(""); return; }
+    send(evalExpr(raw, input.dataset.val));
+  }
+
+  // drag on a field's label/icon to scrub its value (Figma behaviour; Shift = big nudge)
+  function attachScrub(handle, input, send) {
+    handle.style.cursor = "ew-resize";
+    let active = false, startX = 0, base = 0;
+    handle.addEventListener("pointerdown", (e) => {
+      const cur = input.dataset.val; base = cur === "" || cur == null || isNaN(parseFloat(cur)) ? 0 : parseFloat(cur);
+      active = true; startX = e.clientX; handle.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!active) return;
+      const v = Math.round((base + (e.clientX - startX) * (e.shiftKey ? 10 : 1)) * 100) / 100;
+      input.value = String(v); input.dataset.val = String(v); send(v);
+    });
+    const end = (e) => { if (!active) return; active = false; try { handle.releasePointerCapture(e.pointerId); } catch (_) {} };
+    handle.addEventListener("pointerup", end); handle.addEventListener("pointercancel", end);
+  }
+
+  function setNum(input, f) {
+    if (isFocused(input)) return;
+    if (f.mixed) { input.value = ""; input.placeholder = "Mixed"; input.dataset.val = ""; }
+    else if (f.value === "AUTO") { input.value = ""; input.placeholder = "Auto"; input.dataset.val = ""; }
+    else { const s = f.value == null ? "" : String(f.value); input.value = s; input.placeholder = ""; input.dataset.val = s; }
+  }
+
+  function leadEl(lead) {
+    const ic = el("span", "lead");
+    ic.innerHTML = lead.indexOf("<") === 0 ? lead : `<span class="lead-tx">${lead}</span>`;
+    return ic;
+  }
+
+  function numCell(field, lead, opt) {
+    opt = opt || {};
+    const wrap = el("div", "field");
+    let leadNode = null;
+    if (lead) { leadNode = leadEl(lead); wrap.appendChild(leadNode); }
+    const input = el("input"); input.type = "text"; input.inputMode = "decimal"; input.spellcheck = false;
+    input.addEventListener("change", () => commitNum(input, (v) => apply(field, v)));
+    wrap.appendChild(input);
+    if (opt.suffix) { const s = el("span", "suf"); s.textContent = opt.suffix; wrap.appendChild(s); }
+    if (leadNode) attachScrub(leadNode, input, (v) => apply(field, v));
+    return { el: wrap, update: (snap) => { const f = snap.fields[field]; const sup = f && f.supported; wrap.classList.toggle("hidden", !sup); if (sup) setNum(input, f); return sup; } };
+  }
+
+  // applies one value to several fields (e.g. horizontal padding -> left+right), reads from readField
+  function numCellMulti(applyFields, readField, lead) {
+    const wrap = el("div", "field");
+    let leadNode = null;
+    if (lead) { leadNode = leadEl(lead); wrap.appendChild(leadNode); }
+    const input = el("input"); input.type = "text"; input.inputMode = "decimal"; input.spellcheck = false;
+    const send = (v) => applyFields.forEach((f) => apply(f, v));
+    input.addEventListener("change", () => commitNum(input, send));
+    wrap.appendChild(input);
+    if (leadNode) attachScrub(leadNode, input, send);
+    return { el: wrap, update: (snap) => { const f = snap.fields[readField]; const sup = f && f.supported; wrap.classList.toggle("hidden", !sup); if (sup) setNum(input, f); return sup; } };
+  }
+
+  function selectField(field, options) {
+    const s = el("select");
+    options.forEach((o) => { const op = el("option"); op.value = o.val; op.textContent = o.label; s.appendChild(op); });
+    s.addEventListener("change", () => apply(field, s.value));
+    return { el: s, update: (snap) => { const f = snap.fields[field]; const sup = f && f.supported; s.classList.toggle("hidden", !sup); if (sup) { if (f.mixed) s.selectedIndex = -1; else if (!isFocused(s)) s.value = String(f.value); } return sup; } };
+  }
+
+  function segmented(field, options, grow) {
+    const g = el("div", "seg" + (grow ? " grow" : ""));
+    const btns = options.map((o) => { const b = el("button", "seg-btn"); b.title = o.title || cap(o.val); b.innerHTML = o.icon; b.onclick = () => apply(field, o.val); g.appendChild(b); return { b, val: o.val }; });
+    return { el: g, update: (snap) => { const f = snap.fields[field]; const sup = f && f.supported; g.classList.toggle("hidden", !sup); if (sup) btns.forEach((x) => x.b.classList.toggle("active", !f.mixed && x.val === f.value)); return sup; } };
+  }
+
+  function cmdRow(buttons, supField) {
+    const g = el("div", "seg grow");
+    buttons.forEach((bn) => { const b = el("button", "seg-btn"); b.title = bn.title; b.innerHTML = bn.icon; b.onclick = () => cmd(bn.cmd); g.appendChild(b); });
+    return { el: g, update: (snap) => { const sup = snap.fields[supField] && snap.fields[supField].supported; g.classList.toggle("hidden", !sup); return !!sup; } };
+  }
+
+  function cmdBtn(name, icon, title, supField) {
+    const b = el("button", "icon-btn"); b.title = title; b.innerHTML = icon; b.onclick = () => cmd(name);
+    return { el: b, update: (snap) => { const sup = snap.fields[supField] && snap.fields[supField].supported; b.classList.toggle("hidden", !sup); return !!sup; } };
+  }
+
+  function checkRow(field, label) {
+    const row = el("div", "check-row");
+    const box = el("input"); box.type = "checkbox";
+    const lab = el("span", "check-lab"); lab.textContent = label;
+    box.addEventListener("change", () => apply(field, box.checked));
+    row.append(box, lab);
+    return { el: row, update: (snap) => { const f = snap.fields[field]; const sup = f && f.supported; row.classList.toggle("hidden", !sup); if (sup) { box.indeterminate = f.mixed; box.checked = f.mixed ? false : !!f.value; } return sup; } };
+  }
+
+  function colorRow(colorField, opacityField) {
+    const row = el("div", "color-row");
+    const sw = el("button", "swatch");
+    const picker = el("input"); picker.type = "color"; picker.className = "picker"; sw.appendChild(picker);
+    const hex = el("input", "hex"); hex.type = "text"; hex.spellcheck = false;
+    sw.onclick = () => picker.click();
+    picker.addEventListener("input", () => { sw.style.background = picker.value; });
+    picker.addEventListener("change", () => apply(colorField, picker.value));
+    hex.addEventListener("change", () => { const v = hex.value.trim().replace(/^#/, ""); if (v === "" || v.toLowerCase() === "none") return apply(colorField, "none"); apply(colorField, "#" + v); });
+    row.append(sw, hex);
+    let op = null;
+    if (opacityField) {
+      const ow = el("div", "field op"); op = el("input"); op.type = "text"; op.inputMode = "decimal";
+      const pc = el("span", "suf"); pc.textContent = "%"; ow.append(op, pc);
+      op.addEventListener("change", () => apply(opacityField, op.value.trim() === "" ? 100 : parseFloat(op.value)));
+      row.append(ow);
+    }
+    return { el: row, update: (snap) => {
+      const cf = snap.fields[colorField]; const sup = cf && cf.supported; row.classList.toggle("hidden", !sup);
+      if (sup) {
+        if (cf.mixed) { if (!isFocused(hex)) { hex.value = ""; hex.placeholder = "Mixed"; } sw.style.background = "var(--input)"; }
+        else if (cf.value === "none" || cf.value == null) { if (!isFocused(hex)) { hex.value = ""; hex.placeholder = "None"; } sw.style.background = "var(--input)"; }
+        else { const h = String(cf.value); if (!isFocused(hex)) { hex.value = h.replace(/^#/, "").toUpperCase(); hex.placeholder = ""; } sw.style.background = h; if (/^#([0-9a-f]{6})$/i.test(h)) picker.value = h; }
+        if (op) { const of = snap.fields[opacityField]; if (of && of.supported && !isFocused(op)) op.value = of.mixed ? "" : String(of.value); }
+      }
+      return sup;
+    } };
+  }
+
+  function alignPad() {
+    const wrap = el("div", "pad-wrap");
+    const grid = el("div", "pad");
+    const cells = [];
+    const A = (i) => ["MIN", "CENTER", "MAX"][i];
+    let mode = "HORIZONTAL";
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      const b = el("button", "pad-cell"); b.dataset.r = r; b.dataset.c = c;
+      b.onclick = () => { if (mode === "VERTICAL") { apply("primaryAxisAlignItems", A(r)); apply("counterAxisAlignItems", A(c)); } else { apply("primaryAxisAlignItems", A(c)); apply("counterAxisAlignItems", A(r)); } };
+      grid.appendChild(b); cells.push(b);
+    }
+    const gap = numCell("itemSpacing", ICONS.gap);
+    wrap.append(grid, gap.el);
+    return { el: wrap, update: (snap) => {
+      const pa = snap.fields.primaryAxisAlignItems; const ca = snap.fields.counterAxisAlignItems;
+      const lm = snap.fields.layoutMode; const sup = pa && pa.supported;
+      wrap.classList.toggle("hidden", !sup);
+      if (sup) {
+        mode = lm && lm.value === "VERTICAL" ? "VERTICAL" : "HORIZONTAL";
+        const idx = (v) => ({ MIN: 0, CENTER: 1, MAX: 2, SPACE_BETWEEN: 1, BASELINE: 0 })[v];
+        let ar = -1, ac = -1;
+        if (pa && !pa.mixed && ca && !ca.mixed) { if (mode === "VERTICAL") { ar = idx(pa.value); ac = idx(ca.value); } else { ac = idx(pa.value); ar = idx(ca.value); } }
+        cells.forEach((b) => b.classList.toggle("active", Number(b.dataset.r) === ar && Number(b.dataset.c) === ac));
+        gap.update(snap);
+      }
+      return sup;
+    } };
+  }
+
+  function rowGrid(cells, cols) {
+    const row = el("div", "row-grid");
+    row.style.gridTemplateColumns = cols || `repeat(${cells.length},1fr)`;
+    cells.forEach((c) => row.appendChild(c.el));
+    return { el: row, update: (snap) => { let v = false; cells.forEach((c) => { if (c.update(snap)) v = true; }); row.classList.toggle("hidden", !v); return v; } };
+  }
+  function rowFlex(cells) {
+    const row = el("div", "row-flex");
+    cells.forEach((c) => row.appendChild(c.el));
+    return { el: row, update: (snap) => { let v = false; cells.forEach((c) => { if (c.update(snap)) v = true; }); row.classList.toggle("hidden", !v); return v; } };
+  }
+  function group(label, blocks) {
+    const c = el("div", "group");
+    if (label) { const l = el("div", "sublabel"); l.textContent = label; c.appendChild(l); }
+    blocks.forEach((b) => c.appendChild(b.el));
+    return { el: c, update: (snap) => { let v = false; blocks.forEach((b) => { if (b.update(snap)) v = true; }); c.classList.toggle("hidden", !v); return v; } };
+  }
+  const spacer = () => ({ el: el("div"), update: () => false });
+
+  function tag(text) { const s = el("span", "tag"); s.textContent = text; return { el: s, update: () => false }; }
+
+  // lock aspect ratio toggle (open / closed padlock) bound to a boolean field
+  function lockField(field) {
+    const b = el("button", "icon-btn lock"); b.title = "Lock aspect ratio";
+    let on = false;
+    const render = () => { b.innerHTML = on ? ICONS.lockOn : ICONS.lockOff; b.classList.toggle("active", on); };
+    render();
+    b.onclick = () => { on = !on; render(); apply(field, on); };
+    return { el: b, update: (snap) => { const f = snap.fields[field]; const sup = f && f.supported; b.classList.toggle("hidden", !sup); if (sup && !f.mixed) { on = !!f.value; render(); } return sup; } };
+  }
+
+  // dimension field with an inline sizing dropdown (Fixed / Hug / Fill) like Figma native
+  function dimCell(field, sizingField, lead) {
+    const wrap = el("div", "field"); const leadNode = leadEl(lead); wrap.appendChild(leadNode);
+    const input = el("input"); input.type = "text"; input.inputMode = "decimal"; input.spellcheck = false;
+    input.addEventListener("change", () => commitNum(input, (v) => apply(field, v)));
+    wrap.appendChild(input);
+    attachScrub(leadNode, input, (v) => apply(field, v));
+    const sel = el("select", "szsel");
+    [["FIXED", "Fixed"], ["HUG", "Hug"], ["FILL", "Fill"]].forEach(([v, l]) => { const o = el("option"); o.value = v; o.textContent = l; sel.appendChild(o); });
+    sel.addEventListener("change", () => apply(sizingField, sel.value));
+    wrap.appendChild(sel);
+    return { el: wrap, update: (snap) => {
+      const f = snap.fields[field]; const sup = f && f.supported; wrap.classList.toggle("hidden", !sup);
+      if (sup) {
+        const sz = snap.fields[sizingField]; const szSup = sz && sz.supported;
+        sel.classList.toggle("hidden", !szSup);
+        if (szSup && !sz.mixed && (sz.value === "HUG" || sz.value === "FILL")) {
+          if (!isFocused(input)) { input.value = ""; input.placeholder = sz.value === "HUG" ? "Hug" : "Fill"; }
+        } else setNum(input, f);
+        if (szSup && !isFocused(sel)) sel.value = sz.mixed ? "FIXED" : String(sz.value);
+      }
+      return sup;
+    } };
+  }
+
+  // corner radius with a single value + an independent-corners toggle (matches Figma native)
+  function cornerBlock() {
+    const wrap = el("div", "group");
+    const topRow = el("div", "row-flex");
+    const opacity = numCell("opacity", ICONS.opacity, { suffix: "%" });
+    const radius = numCell("cornerRadius", ICONS.corner);
+    const tBtn = el("button", "icon-btn"); tBtn.title = "Independent corners"; tBtn.innerHTML = ICONS.cornerSides;
+    topRow.append(opacity.el, radius.el, tBtn);
+    const tl = numCell("topLeftRadius", ICONS.cornerTL), tr = numCell("topRightRadius", ICONS.cornerTR),
+          bl = numCell("bottomLeftRadius", ICONS.cornerBL), br = numCell("bottomRightRadius", ICONS.cornerBR);
+    const grid = el("div", "group hidden"); grid.style.gap = "8px";
+    const g1 = el("div", "row-grid"); g1.style.gridTemplateColumns = "repeat(2,1fr)"; g1.append(tl.el, tr.el);
+    const g2 = el("div", "row-grid"); g2.style.gridTemplateColumns = "repeat(2,1fr)"; g2.append(bl.el, br.el);
+    grid.append(g1, g2);
+    wrap.append(topRow, grid);
+    let per = false, cornerSup = false;
+    function applyView() { radius.el.classList.toggle("hidden", !cornerSup || per); grid.classList.toggle("hidden", !(cornerSup && per)); }
+    tBtn.onclick = () => { if (!cornerSup) return; per = !per; tBtn.classList.toggle("active", per); applyView(); };
+    return { el: wrap, update: (snap) => {
+      let vis = false;
+      if (opacity.update(snap)) vis = true;
+      radius.update(snap); tl.update(snap); tr.update(snap); bl.update(snap); br.update(snap);
+      cornerSup = !!(snap.fields.cornerRadius && snap.fields.cornerRadius.supported);
+      tBtn.classList.toggle("hidden", !cornerSup);
+      if (cornerSup) vis = true;
+      applyView();
+      wrap.classList.toggle("hidden", !vis);
+      return vis;
+    } };
+  }
+
+  // padding with a unified (vertical / horizontal) view and an individual per-side toggle
+  function paddingBlock() {
+    const wrap = el("div", "group");
+    const lab = el("div", "sublabel"); lab.textContent = "Padding"; wrap.appendChild(lab);
+    const combined = el("div", "row-flex");
+    const vCell = numCellMulti(["paddingTop", "paddingBottom"], "paddingTop", ICONS.padV);
+    const hCell = numCellMulti(["paddingLeft", "paddingRight"], "paddingLeft", ICONS.padH);
+    const tBtn = el("button", "icon-btn"); tBtn.title = "Individual padding"; tBtn.innerHTML = ICONS.padSides;
+    combined.append(vCell.el, hCell.el, tBtn);
+    const top = numCell("paddingTop", "T"), right = numCell("paddingRight", "R"), bottom = numCell("paddingBottom", "B"), left = numCell("paddingLeft", "L");
+    const sides = el("div", "group hidden"); sides.style.gap = "8px";
+    const r1 = el("div", "row-grid"); r1.style.gridTemplateColumns = "repeat(2,1fr)"; r1.append(top.el, right.el);
+    const r2 = el("div", "row-grid"); r2.style.gridTemplateColumns = "repeat(2,1fr)"; r2.append(bottom.el, left.el);
+    sides.append(r1, r2);
+    wrap.append(combined, sides);
+    let per = false;
+    tBtn.onclick = () => { per = !per; tBtn.classList.toggle("active", per); applyView(); };
+    function applyView() { vCell.el.classList.toggle("hidden", per); hCell.el.classList.toggle("hidden", per); sides.classList.toggle("hidden", !per); }
+    return { el: wrap, update: (snap) => {
+      const f = snap.fields.paddingTop; const sup = f && f.supported; wrap.classList.toggle("hidden", !sup);
+      if (sup) { vCell.update(snap); hCell.update(snap); top.update(snap); right.update(snap); bottom.update(snap); left.update(snap); applyView(); }
+      return sup;
+    } };
+  }
+
+  // ---------- option sets ----------
+  const BLEND = ["NORMAL","DARKEN","MULTIPLY","COLOR_BURN","LIGHTEN","SCREEN","COLOR_DODGE","OVERLAY","SOFT_LIGHT","HARD_LIGHT","DIFFERENCE","EXCLUSION","HUE","SATURATION","COLOR","LUMINOSITY"].map((v) => ({ val: v, label: cap(v) }));
+  const SIZING = [{ val: "FIXED", label: "Fixed" }, { val: "HUG", label: "Hug" }, { val: "FILL", label: "Fill" }];
+  const CH = [{ val: "MIN", label: "Left" }, { val: "CENTER", label: "Center" }, { val: "MAX", label: "Right" }, { val: "STRETCH", label: "Left & right" }, { val: "SCALE", label: "Scale" }];
+  const CV = [{ val: "MIN", label: "Top" }, { val: "CENTER", label: "Center" }, { val: "MAX", label: "Bottom" }, { val: "STRETCH", label: "Top & bottom" }, { val: "SCALE", label: "Scale" }];
+  const STROKE_ALIGN = [{ val: "INSIDE", label: "Inside" }, { val: "CENTER", label: "Center" }, { val: "OUTSIDE", label: "Outside" }];
+
+  // ===================== build the panel =====================
+  function buildPanel() {
+    const root = document.getElementById("sections");
+
+    const pos = makeSection("Position");
+    pos.add(group("Alignment", [cmdRow([
+      { cmd: "align-left", icon: ICONS.alignLeft, title: "Align left" },
+      { cmd: "align-h-center", icon: ICONS.alignHCenter, title: "Align horizontal centers" },
+      { cmd: "align-right", icon: ICONS.alignRight, title: "Align right" },
+      { cmd: "align-top", icon: ICONS.alignTop, title: "Align top" },
+      { cmd: "align-v-center", icon: ICONS.alignVCenter, title: "Align vertical centers" },
+      { cmd: "align-bottom", icon: ICONS.alignBottom, title: "Align bottom" },
+    ], "x")]));
+    pos.add(group("Position", [rowGrid([numCell("x", "X"), numCell("y", "Y")])]));
+    pos.add(group("Dimensions", [rowFlex([dimCell("width", "layoutSizingHorizontal", "W"), lockField("constrainProportions"), dimCell("height", "layoutSizingVertical", "H")])]));
+    pos.add(group("Rotation", [rowFlex([
+      numCell("rotation", ICONS.rotation, { suffix: "°" }),
+      cmdBtn("flip-h", ICONS.flipH, "Flip horizontal", "x"),
+      cmdBtn("flip-v", ICONS.flipV, "Flip vertical", "x"),
+    ])]));
+    pos.add(group("Constraints", [rowGrid([selectField("constraintH", CH), selectField("constraintV", CV)])]));
+
+    const lay = makeSection("Layout");
+    lay.add(group("Flow", [rowFlex([
+      segmented("layoutMode", [
+        { val: "NONE", icon: ICONS.flowNone, title: "No layout" },
+        { val: "HORIZONTAL", icon: ICONS.flowH, title: "Horizontal" },
+        { val: "VERTICAL", icon: ICONS.flowV, title: "Vertical" },
+      ], true),
+      segmented("layoutWrap", [
+        { val: "NO_WRAP", icon: ICONS.flowH, title: "No wrap" },
+        { val: "WRAP", icon: ICONS.wrap, title: "Wrap" },
+      ]),
+    ])]));
+    lay.add(group("Alignment & gap", [alignPad()]));
+    lay.add(paddingBlock());
+    lay.add(group("", [checkRow("clipsContent", "Clip content")]));
+
+    const app = makeSection("Appearance");
+    app.add(cornerBlock());
+    app.add(group("Blend", [selectField("blendMode", BLEND)]));
+    app.add(rowGrid([checkRow("visible", "Visible"), checkRow("locked", "Locked")]));
+
+    const fill = makeSection("Fill");
+    fill.add(colorRow("fillColor", "fillOpacity"));
+
+    const stroke = makeSection("Stroke");
+    stroke.add(colorRow("strokeColor", null));
+    stroke.add(group("Position & weight", [rowGrid([selectField("strokeAlign", STROKE_ALIGN), numCell("strokeWeight", ICONS.weight)])]));
+
+    const fx = makeSection("Effects", true);
+    fx.add(checkRow("shadowEnabled", "Drop shadow"));
+    fx.add(colorRow("shadowColor", null));
+    fx.add(rowGrid([numCell("shadowX", "X"), numCell("shadowY", "Y")]));
+    fx.add(rowGrid([numCell("shadowBlur", ICONS.opacity), numCell("shadowSpread", "S")]));
+    fx.add(checkRow("blurEnabled", "Layer blur"));
+    fx.add(numCell("blurRadius", ICONS.opacity));
+
+    const text = makeSection("Text");
+    text.add(rowGrid([numCell("fontSize", "S"), numCell("lineHeight", "H")]));
+    text.add(rowGrid([numCell("letterSpacing", "LS"), spacer()]));
+    text.add(group("Alignment", [segmented("textAlignHorizontal", [
+      { val: "LEFT", icon: ICONS.taL }, { val: "CENTER", icon: ICONS.taC },
+      { val: "RIGHT", icon: ICONS.taR }, { val: "JUSTIFIED", icon: ICONS.taJ },
+    ], true)]));
+
+    sections.forEach((s) => root.appendChild(s.wrap));
+  }
+
+  // ===================== update =====================
+  function update(snap) {
+    const hasSel = snap.count > 0;
+    document.getElementById("empty").classList.toggle("hidden", hasSel);
+    document.getElementById("sections").classList.toggle("hidden", !hasSel);
+    if (!hasSel) return;
+    for (const sec of sections) {
+      let vis = false;
+      for (const b of sec.blocks) { if (b.update(snap)) vis = true; }
+      sec.wrap.classList.toggle("hidden", !vis);
+    }
+  }
+
+  window.onmessage = (e) => { const msg = e.data.pluginMessage; if (msg && msg.type === "selection") update(msg.snapshot); };
+
+  // ---------- drag to resize ----------
+  (function () {
+    const grip = document.getElementById("resize");
+    let active = false;
+    grip.addEventListener("pointerdown", (e) => { active = true; grip.setPointerCapture(e.pointerId); e.preventDefault(); });
+    grip.addEventListener("pointermove", (e) => { if (!active) return; post({ type: "resize", width: e.clientX + 4, height: e.clientY + 4 }); });
+    const end = (e) => { active = false; try { grip.releasePointerCapture(e.pointerId); } catch (_) {} };
+    grip.addEventListener("pointerup", end); grip.addEventListener("pointercancel", end);
+  })();
+
+  buildPanel();
+</script>
+</body>
+</html>

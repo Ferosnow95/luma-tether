@@ -1,0 +1,16 @@
+{
+  "name": "tether-figma",
+  "version": "0.1.0",
+  "description": "Tether — a movable, in-canvas mirror of Figma's right-hand properties panel.",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "esbuild src/code.ts --bundle --format=iife --target=es2017 --outfile=dist/code.js",
+    "watch": "esbuild src/code.ts --bundle --format=iife --target=es2017 --outfile=dist/code.js --watch"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.100.0",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.0"
+  }
+}
