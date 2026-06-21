@@ -107,17 +107,77 @@ one classic script); **`tsc`** is used only for type-checking.
 
 ---
 
+## Requirements
+
+- **Figma desktop app** (plugin development / "Import from manifest" is desktop-only).
+- **Node.js 18+** and npm (to build the plugin bundle).
+- No API keys, accounts, or network access — Tether runs 100% on-canvas.
+
+## Install
+
+Tether isn't on the Figma Community yet, so you install it as a local development
+plugin. One-time setup:
+
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/Ferosnow95/luma-tether.git
+   cd luma-tether
+   ```
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+3. **Build the plugin bundle** (produces `dist/code.js`)
+   ```bash
+   npm run build
+   ```
+4. **Import into Figma** — open the Figma **desktop** app, then:
+   **Menu → Plugins → Development → Import plugin from manifest…** and select the
+   `manifest.json` at the root of this repo.
+5. Tether now appears under **Plugins → Development → Tether**. Run it from there (or
+   right-click the canvas → **Plugins → Development → Tether**).
+
+> **Updating:** after `git pull`, run `npm run build` again and reload the plugin in
+> Figma (it re-reads `dist/code.js` on each run).
+
+## How to use
+
+1. **Run Tether.** A floating panel appears inside the Figma window.
+2. **Position it where you work** — drag it by the native plugin **title bar** to sit
+   next to the center of your canvas, and resize it from the **corner grip**. (Figma
+   iframes can't leave the Figma window, so Tether floats *within* it rather than on a
+   separate monitor.)
+3. **Select a layer** (or several). Tether reads the selection and shows only the
+   sections that apply — Position, Layout, Appearance, Fill / Stroke, Effects, Text.
+4. **Edit in place.** The controls mirror Figma's native Design panel one-to-one, so
+   changes apply to your selection exactly as they would on the right edge — without the
+   mouse trip across a wide display.
+
+### Power-user input
+- **Math in any numeric field** — type `+10`, `-20`, `*2`, `/4`, `^2`, or `(x/2)+6`
+  (where `x` is the current value). A leading operator applies to the current value.
+  Parsed safely (no `eval`), so it respects the plugin sandbox.
+- **Scrub fields** — drag a field's label/icon to scrub the value (1px = 1 unit; hold
+  **Shift** for ×10).
+- **Mixed values** — a multi-selection with differing values shows `Mixed`; only the
+  fields you actually change get written.
+- **Live sync** — the panel follows the current selection and updates as the document
+  changes, while leaving the input you're actively editing untouched.
+
 ## Develop
 
 ```bash
 npm install
-npm run typecheck   # tsc --noEmit
+npm run typecheck   # tsc --noEmit (type-check only)
 npm run build       # esbuild -> dist/code.js
 npm run watch       # rebuild on change
 ```
 
-Then in Figma: **Plugins → Development → Import plugin from manifest…** and pick
-`manifest.json`. Run it via **Plugins → Development → Tether**.
+> **Must bundle with esbuild** (`--format=iife`). The Figma sandbox runs one classic
+> script; `tsc` is used only for type-checking.
+
+With `npm run watch` running, edit `src/*.ts` / `ui.html`, then re-run the plugin in
+Figma to pick up the rebuilt bundle.
 
 ## License
 
