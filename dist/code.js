@@ -170,6 +170,8 @@
       const ps = n.paragraphSpacing;
       return ps === figma.mixed ? figma.mixed : round(ps);
     },
+    fontFamily: (n) => n.type === "TEXT" ? n.fontName === figma.mixed ? figma.mixed : n.fontName.family : void 0,
+    fontStyle: (n) => n.type === "TEXT" ? n.fontName === figma.mixed ? figma.mixed : n.fontName.style : void 0,
     topLeftRadius: (n) => "topLeftRadius" in n ? round(n.topLeftRadius) : void 0,
     topRightRadius: (n) => "topRightRadius" in n ? round(n.topRightRadius) : void 0,
     bottomLeftRadius: (n) => "bottomLeftRadius" in n ? round(n.bottomLeftRadius) : void 0,
@@ -392,6 +394,30 @@
       case "paragraphSpacing":
         t.paragraphSpacing = Math.max(0, num(value));
         break;
+      case "fontFamily": {
+        const family = String(value);
+        const avail = await figma.listAvailableFontsAsync();
+        const stylesFor = avail.filter((a) => a.fontName.family === family).map((a) => a.fontName.style);
+        const curStyle = t.fontName === figma.mixed ? null : t.fontName.style;
+        let style = "Regular";
+        if (curStyle && stylesFor.indexOf(curStyle) !== -1) style = curStyle;
+        else if (stylesFor.indexOf("Regular") !== -1) style = "Regular";
+        else if (stylesFor.length) style = stylesFor[0];
+        const nf = { family, style };
+        await figma.loadFontAsync(nf);
+        if (len > 0) t.setRangeFontName(0, len, nf);
+        else t.fontName = nf;
+        break;
+      }
+      case "fontStyle": {
+        const family = t.fontName === figma.mixed ? null : t.fontName.family;
+        if (!family) break;
+        const nf = { family, style: String(value) };
+        await figma.loadFontAsync(nf);
+        if (len > 0) t.setRangeFontName(0, len, nf);
+        else t.fontName = nf;
+        break;
+      }
     }
   }
   async function applyToNode(n, field, value) {
@@ -519,6 +545,8 @@
       case "textCase":
       case "textDecoration":
       case "paragraphSpacing":
+      case "fontFamily":
+      case "fontStyle":
         await applyText(n, field, value);
         break;
     }
@@ -644,6 +672,17 @@
     const max = figma.root.children.length - 1;
     const idx = Math.max(0, Math.min(Math.round(newIndex), max));
     figma.root.insertChild(idx, node);
+  }
+  async function listFonts() {
+    const fonts = await figma.listAvailableFontsAsync();
+    const styles = {};
+    for (const f of fonts) {
+      const fam = f.fontName.family;
+      if (!styles[fam]) styles[fam] = [];
+      styles[fam].push(f.fontName.style);
+    }
+    const families = Object.keys(styles).sort((a, b) => a.localeCompare(b));
+    return { families, styles };
   }
   function defaultEffect(type) {
     if (type === "LAYER_BLUR" || type === "BACKGROUND_BLUR") {
@@ -803,10 +842,13 @@
     if (minX === Infinity) return null;
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
-  function snapToSelection() {
+  function snapToSelection(announce) {
     if (!follow) return;
     const b = selectionBounds();
-    if (!b) return;
+    if (!b) {
+      if (announce) figma.notify("Follow selection on - select a frame to snap beside it");
+      return;
+    }
     const zoom = figma.viewport.zoom;
     const vb = figma.viewport.bounds;
     const GAP = 16;
@@ -841,6 +883,9 @@
     x = Math.max(minX, Math.min(x, maxX - uiW));
     y = Math.max(minY, Math.min(y, maxY - uiH));
     figma.ui.reposition(Math.round(x), Math.round(y));
+    if (announce) {
+      figma.notify(`Follow selection on (${pos ? "exact" : "viewport"} positioning)`);
+    }
   }
   var history = [];
   var histIndex = -1;
@@ -909,7 +954,12 @@
         }
         case "set-follow": {
           follow = !!msg.on;
-          if (follow) snapToSelection();
+          if (follow) snapToSelection(true);
+          break;
+        }
+        case "get-fonts": {
+          const f = await listFonts();
+          figma.ui.postMessage({ type: "fonts", families: f.families, styles: f.styles });
           break;
         }
         case "nav-back": {

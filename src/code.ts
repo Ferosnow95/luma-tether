@@ -1,6 +1,6 @@
 /// <reference types="@figma/plugin-typings" />
 
-import { getSnapshot, applyField, runCommand, listPages, gotoPage, applyList, reorderPage } from "./actions";
+import { getSnapshot, applyField, runCommand, listPages, gotoPage, applyList, reorderPage, listFonts } from "./actions";
 
 figma.showUI(__html__, {
   width: 264,
@@ -35,10 +35,13 @@ function selectionBounds(): Rect | null {
 // Place the plugin window just to the right of the current selection (left side if
 // there isn't room). Prefers the exact getPosition() transform; if that API isn't
 // available, falls back to a viewport-only mapping. Always clamped on-screen.
-function snapToSelection(): void {
+function snapToSelection(announce?: boolean): void {
   if (!follow) return;
   const b = selectionBounds();
-  if (!b) return;
+  if (!b) {
+    if (announce) figma.notify("Follow selection on - select a frame to snap beside it");
+    return;
+  }
   const zoom = figma.viewport.zoom;
   const vb = figma.viewport.bounds;
   const GAP = 16;
@@ -73,6 +76,9 @@ function snapToSelection(): void {
   x = Math.max(minX, Math.min(x, maxX - uiW));
   y = Math.max(minY, Math.min(y, maxY - uiH));
   figma.ui.reposition(Math.round(x), Math.round(y));
+  if (announce) {
+    figma.notify(`Follow selection on (${pos ? "exact" : "viewport"} positioning)`);
+  }
 }
 
 // ---------- page navigation + history ----------
@@ -151,7 +157,12 @@ figma.ui.onmessage = async (msg: any) => {
       }
       case "set-follow": {
         follow = !!msg.on;
-        if (follow) snapToSelection();
+        if (follow) snapToSelection(true);
+        break;
+      }
+      case "get-fonts": {
+        const f = await listFonts();
+        figma.ui.postMessage({ type: "fonts", families: f.families, styles: f.styles });
         break;
       }
       case "nav-back": {

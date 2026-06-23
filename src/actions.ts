@@ -221,6 +221,8 @@ const GETTERS: Record<string, Getter> = {
     const ps = n.paragraphSpacing;
     return ps === figma.mixed ? figma.mixed : round(ps);
   },
+  fontFamily: (n) => (n.type === "TEXT" ? (n.fontName === figma.mixed ? figma.mixed : n.fontName.family) : undefined),
+  fontStyle: (n) => (n.type === "TEXT" ? (n.fontName === figma.mixed ? figma.mixed : n.fontName.style) : undefined),
 
   topLeftRadius: (n) => ("topLeftRadius" in n ? round((n as any).topLeftRadius) : undefined),
   topRightRadius: (n) => ("topRightRadius" in n ? round((n as any).topRightRadius) : undefined),
@@ -478,6 +480,28 @@ async function applyText(n: SceneNode, field: string, value: unknown): Promise<v
     case "paragraphSpacing":
       t.paragraphSpacing = Math.max(0, num(value));
       break;
+    case "fontFamily": {
+      const family = String(value);
+      const avail = await figma.listAvailableFontsAsync();
+      const stylesFor = avail.filter((a) => a.fontName.family === family).map((a) => a.fontName.style);
+      const curStyle = t.fontName === figma.mixed ? null : t.fontName.style;
+      let style = "Regular";
+      if (curStyle && stylesFor.indexOf(curStyle) !== -1) style = curStyle;
+      else if (stylesFor.indexOf("Regular") !== -1) style = "Regular";
+      else if (stylesFor.length) style = stylesFor[0];
+      const nf: FontName = { family, style };
+      await figma.loadFontAsync(nf);
+      if (len > 0) t.setRangeFontName(0, len, nf); else t.fontName = nf;
+      break;
+    }
+    case "fontStyle": {
+      const family = t.fontName === figma.mixed ? null : t.fontName.family;
+      if (!family) break;
+      const nf: FontName = { family, style: String(value) };
+      await figma.loadFontAsync(nf);
+      if (len > 0) t.setRangeFontName(0, len, nf); else t.fontName = nf;
+      break;
+    }
   }
 }
 
@@ -612,6 +636,8 @@ async function applyToNode(n: SceneNode, field: string, value: unknown): Promise
     case "textCase":
     case "textDecoration":
     case "paragraphSpacing":
+    case "fontFamily":
+    case "fontStyle":
       await applyText(n, field, value);
       break;
   }
@@ -735,6 +761,20 @@ export async function reorderPage(id: string, newIndex: number): Promise<void> {
   const max = figma.root.children.length - 1;
   const idx = Math.max(0, Math.min(Math.round(newIndex), max));
   figma.root.insertChild(idx, node as PageNode);
+}
+
+// ---------- fonts ----------
+
+export async function listFonts(): Promise<{ families: string[]; styles: Record<string, string[]> }> {
+  const fonts = await figma.listAvailableFontsAsync();
+  const styles: Record<string, string[]> = {};
+  for (const f of fonts) {
+    const fam = f.fontName.family;
+    if (!styles[fam]) styles[fam] = [];
+    styles[fam].push(f.fontName.style);
+  }
+  const families = Object.keys(styles).sort((a, b) => a.localeCompare(b));
+  return { families, styles };
 }
 
 // ---------- list editing (effects / grids / exports) ----------

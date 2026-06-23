@@ -402,6 +402,43 @@
     return { el: s, update: (snap) => { const f = snap.fields[field]; const sup = f && f.supported; s.classList.toggle("hidden", !sup); if (sup) { if (f.mixed) s.selectedIndex = -1; else if (!isFocused(s)) s.value = String(f.value); } return sup; } };
   }
 
+  // font family + style pickers, populated from the host's available fonts
+  let FONTS = { families: [], styles: {} };
+  function fontControls() {
+    const wrap = el("div", "group");
+    const fam = el("select"); const sty = el("select");
+    wrap.append(fam, sty);
+    let builtFamilies = false;
+    function fillFamilies() {
+      fam.innerHTML = "";
+      for (const f of FONTS.families) { const o = el("option"); o.value = f; o.textContent = f; fam.appendChild(o); }
+      builtFamilies = FONTS.families.length > 0;
+    }
+    function fillStyles(family) {
+      sty.innerHTML = "";
+      const listS = FONTS.styles[family] || [];
+      for (const s of listS) { const o = el("option"); o.value = s; o.textContent = s; sty.appendChild(o); }
+    }
+    fam.addEventListener("change", () => apply("fontFamily", fam.value));
+    sty.addEventListener("change", () => apply("fontStyle", sty.value));
+    return { el: wrap, update: (snap) => {
+      const ff = snap.fields.fontFamily, fs = snap.fields.fontStyle;
+      const sup = ff && ff.supported;
+      wrap.classList.toggle("hidden", !sup);
+      if (!sup) return false;
+      if (!builtFamilies && FONTS.families.length) fillFamilies();
+      if (ff.mixed) { fam.selectedIndex = -1; sty.innerHTML = ""; }
+      else {
+        if (!isFocused(fam)) fam.value = ff.value;
+        if (!isFocused(sty)) {
+          fillStyles(ff.value);
+          if (fs && !fs.mixed) sty.value = fs.value; else sty.selectedIndex = -1;
+        }
+      }
+      return true;
+    } };
+  }
+
   function segmented(field, options, grow) {
     const g = el("div", "seg" + (grow ? " grow" : ""));
     const btns = options.map((o) => { const b = el("button", "seg-btn"); b.title = o.title || cap(o.val); b.innerHTML = o.icon; b.onclick = () => apply(field, o.val); g.appendChild(b); return { b, val: o.val }; });
@@ -811,6 +848,7 @@
     fx.add(listBlock("effects", effectRow));
 
     const text = makeSection("Text");
+    text.add(fontControls());
     text.add(rowGrid([numCell("fontSize", "S"), numCell("lineHeight", "LH")]));
     text.add(rowGrid([numCell("letterSpacing", "LS"), numCell("paragraphSpacing", "PS")]));
     text.add(group("Alignment", [segmented("textAlignHorizontal", [
@@ -831,7 +869,9 @@
 
   // ===================== update =====================
   let lastSelKey = "";
+  let lastSnap = null;
   function update(snap) {
+    lastSnap = snap;
     const hasSel = snap.count > 0;
     document.getElementById("empty").classList.toggle("hidden", hasSel);
     const sectionsEl = document.getElementById("sections");
@@ -857,6 +897,7 @@
     if (!msg) return;
     if (msg.type === "selection") update(msg.snapshot);
     else if (msg.type === "pages") updateNav(msg);
+    else if (msg.type === "fonts") { FONTS = { families: msg.families || [], styles: msg.styles || {} }; if (lastSnap) update(lastSnap); }
   };
 
   // ---------- page navigation ----------
@@ -962,6 +1003,7 @@
 
   buildPanel();
   document.body.classList.add("ready");
+  post({ type: "get-fonts" });
 </script>
 </body>
 </html>
