@@ -13,6 +13,43 @@ function pushSelection(): void {
   figma.ui.postMessage({ type: "selection", snapshot: getSnapshot() });
 }
 
+// ---------- follow selection (snap window beside the selected frame) ----------
+let follow = false;
+
+function selectionBounds(): Rect | null {
+  const sel = figma.currentPage.selection;
+  if (sel.length === 0) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of sel) {
+    const b = (n as SceneNode & { absoluteBoundingBox?: Rect | null }).absoluteBoundingBox;
+    if (!b) continue;
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.width); maxY = Math.max(maxY, b.y + b.height);
+  }
+  if (minX === Infinity) return null;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+// Place the plugin window just to the right of the current selection. Uses
+// getPosition() to derive the canvas->window transform (no viewport-origin guessing).
+function snapToSelection(): void {
+  if (!follow) return;
+  const b = selectionBounds();
+  if (!b) return;
+  let pos: { windowSpace: Vector; canvasSpace: Vector };
+  try {
+    pos = figma.ui.getPosition();
+  } catch (e) {
+    return;
+  }
+  const zoom = figma.viewport.zoom;
+  const W = pos.windowSpace, C = pos.canvasSpace;
+  const GAP = 16;
+  const winX = W.x + (b.x + b.width - C.x) * zoom + GAP;
+  const winY = W.y + (b.y - C.y) * zoom;
+  figma.ui.reposition(Math.max(8, Math.round(winX)), Math.max(8, Math.round(winY)));
+}
+
 // ---------- page navigation + history ----------
 // History of visited page ids during this plugin session, so "Back" can return to
 // the previously viewed page without using Figma's left sidebar.
@@ -45,7 +82,10 @@ async function navTo(index: number): Promise<void> {
   await gotoPage(history[histIndex]);
 }
 
-figma.on("selectionchange", pushSelection);
+figma.on("selectionchange", () => {
+  pushSelection();
+  snapToSelection();
+});
 figma.on("currentpagechange", () => {
   if (navigating) navigating = false; // page change we initiated via Back/Forward
   else recordPage(); // user (or page dropdown) navigated to a new page
@@ -82,6 +122,11 @@ figma.ui.onmessage = async (msg: any) => {
       case "reorder-page": {
         await reorderPage(msg.id, msg.index);
         pushNav();
+        break;
+      }
+      case "set-follow": {
+        follow = !!msg.on;
+        if (follow) snapToSelection();
         break;
       }
       case "nav-back": {

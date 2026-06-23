@@ -34,9 +34,11 @@
   /* ---------- body ---------- */
   #body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
   #empty {
-    display: flex; align-items: center; justify-content: center; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 100%;
     color: var(--muted); text-align: center; padding: 24px;
   }
+  .empty-icon { color: var(--icon-muted); opacity: .7; }
+  .empty-icon .i { width: 34px; height: 34px; }
 
   .section { border-bottom: 1px solid var(--stroke); }
   .sec-head {
@@ -174,6 +176,7 @@
     color: var(--icon); cursor: pointer; border-radius: 5px; display: flex; align-items: center; justify-content: center; padding: 0; }
   .nav-btn:hover:not(:disabled) { background: var(--bg-hover); }
   .nav-btn:disabled { color: var(--icon-muted); opacity: .4; cursor: default; }
+  .nav-btn.active { color: var(--brand); background: var(--bg-hover); }
   .page-toggle { flex: 1 1 auto; height: 24px; min-width: 0; display: flex; align-items: center; gap: 4px;
     padding: 0 4px 0 8px; background: var(--input); color: var(--text); border: 1px solid transparent;
     border-radius: 5px; font-family: inherit; font-size: 11px; outline: none; cursor: pointer; }
@@ -207,10 +210,14 @@
       <span id="pageName" class="page-name">Page</span>
       <span id="pageCaret" class="page-caret"></span>
     </button>
+    <button id="followBtn" class="nav-btn" title="Follow selection (snap window beside the selected frame)"></button>
   </div>
   <div id="pagePanel" class="page-panel hidden"></div>
   <div id="body">
-    <div id="empty">Select a layer to inspect and edit its properties.</div>
+    <div id="empty">
+      <span id="emptyIcon" class="empty-icon"></span>
+      <span>Select a layer to inspect and edit its properties.</span>
+    </div>
     <div id="sections"></div>
   </div>
   <div id="footer"><div id="resize" title="Resize"></div></div>
@@ -231,6 +238,8 @@
     caretDown: S('<path d="M4.5 6.5l3.5 3.5 3.5-3.5"/>'),
     grip: S('<circle cx="6" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r="1" fill="currentColor" stroke="none"/>'),
     check: S('<path d="M3.5 8.5l3 3 6-7"/>'),
+    layers: S('<path d="M8 2l5.5 3L8 8 2.5 5 8 2z"/><path d="M2.5 8L8 11l5.5-3"/><path d="M2.5 11L8 14l5.5-3"/>'),
+    magnet: S('<path d="M3.5 3v4.5a4.5 4.5 0 0 0 9 0V3"/><path d="M3.5 6.5h3M9.5 6.5h3"/>'),
     navBack: S('<path d="M10 4l-4 4 4 4"/>'),
     navFwd: S('<path d="M6 4l4 4-4 4"/>'),
     alignLeft: bars("M2.5 2.5v11", 'x="4.5" y="4.5" width="8" height="2.5"', 'x="4.5" y="9" width="5" height="2.5"'),
@@ -837,6 +846,11 @@
   navBack.innerHTML = ICONS.navBack;
   navFwd.innerHTML = ICONS.navFwd;
   pageCaret.innerHTML = ICONS.caretDown;
+  document.getElementById("emptyIcon").innerHTML = ICONS.layers;
+  const followBtn = document.getElementById("followBtn");
+  followBtn.innerHTML = ICONS.magnet;
+  let following = false;
+  followBtn.onclick = () => { following = !following; followBtn.classList.toggle("active", following); post({ type: "set-follow", on: following }); };
   navBack.onclick = () => post({ type: "nav-back" });
   navFwd.onclick = () => post({ type: "nav-forward" });
 

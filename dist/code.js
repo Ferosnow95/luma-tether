@@ -756,6 +756,39 @@
   function pushSelection() {
     figma.ui.postMessage({ type: "selection", snapshot: getSnapshot() });
   }
+  var follow = false;
+  function selectionBounds() {
+    const sel = figma.currentPage.selection;
+    if (sel.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of sel) {
+      const b = n.absoluteBoundingBox;
+      if (!b) continue;
+      minX = Math.min(minX, b.x);
+      minY = Math.min(minY, b.y);
+      maxX = Math.max(maxX, b.x + b.width);
+      maxY = Math.max(maxY, b.y + b.height);
+    }
+    if (minX === Infinity) return null;
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }
+  function snapToSelection() {
+    if (!follow) return;
+    const b = selectionBounds();
+    if (!b) return;
+    let pos;
+    try {
+      pos = figma.ui.getPosition();
+    } catch (e) {
+      return;
+    }
+    const zoom = figma.viewport.zoom;
+    const W = pos.windowSpace, C = pos.canvasSpace;
+    const GAP = 16;
+    const winX = W.x + (b.x + b.width - C.x) * zoom + GAP;
+    const winY = W.y + (b.y - C.y) * zoom;
+    figma.ui.reposition(Math.max(8, Math.round(winX)), Math.max(8, Math.round(winY)));
+  }
   var history = [];
   var histIndex = -1;
   var navigating = false;
@@ -781,7 +814,10 @@
     navigating = true;
     await gotoPage(history[histIndex]);
   }
-  figma.on("selectionchange", pushSelection);
+  figma.on("selectionchange", () => {
+    pushSelection();
+    snapToSelection();
+  });
   figma.on("currentpagechange", () => {
     if (navigating) navigating = false;
     else recordPage();
@@ -816,6 +852,11 @@
         case "reorder-page": {
           await reorderPage(msg.id, msg.index);
           pushNav();
+          break;
+        }
+        case "set-follow": {
+          follow = !!msg.on;
+          if (follow) snapToSelection();
           break;
         }
         case "nav-back": {

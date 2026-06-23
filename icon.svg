@@ -1,0 +1,7 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="28" fill="#0D99FF"/>
+  <!-- tether: an anchor point roped to a frame -->
+  <circle cx="40" cy="40" r="11" fill="#FFFFFF"/>
+  <path d="M40 51 C40 74, 64 70, 78 84" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <rect x="74" y="74" width="32" height="32" rx="6" stroke="#FFFFFF" stroke-width="7" fill="none"/>
+</svg>
