@@ -151,6 +151,19 @@
 
   .hidden { display: none !important; }
 
+  /* ---------- nav bar (page back/forward + switcher) ---------- */
+  #nav { flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
+    height: 36px; padding: 0 8px; border-bottom: 1px solid var(--stroke); background: var(--bg); }
+  .nav-btn { width: 24px; height: 24px; flex: 0 0 auto; border: none; background: transparent;
+    color: var(--icon); cursor: pointer; border-radius: 5px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .nav-btn:hover:not(:disabled) { background: var(--bg-hover); }
+  .nav-btn:disabled { color: var(--icon-muted); opacity: .4; cursor: default; }
+  .page-sel { flex: 1 1 auto; height: 24px; min-width: 0; padding: 0 6px;
+    background: var(--input); color: var(--text); border: 1px solid transparent; border-radius: 5px;
+    font-family: inherit; font-size: 11px; outline: none; cursor: pointer; }
+  .page-sel:hover { border-color: var(--stroke); }
+  .page-sel:focus { border-color: var(--brand); }
+
   /* ---------- footer / resize ---------- */
   #footer { flex: 0 0 auto; height: 16px; position: relative; background: var(--bg); }
   #resize { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; }
@@ -159,6 +172,11 @@
 </style>
 </head>
 <body>
+  <div id="nav">
+    <button id="navBack" class="nav-btn" title="Back (previous page)" disabled></button>
+    <button id="navFwd" class="nav-btn" title="Forward" disabled></button>
+    <select id="pageSel" class="page-sel" title="Switch page"></select>
+  </div>
   <div id="body">
     <div id="empty">Select a layer to inspect and edit its properties.</div>
     <div id="sections"></div>
@@ -177,6 +195,8 @@
   const bars = (guide, b1, b2) => S(`<path d="${guide}"/><rect ${b1} rx="1" fill="currentColor" stroke="none"/><rect ${b2} rx="1" fill="currentColor" stroke="none"/>`);
   const ICONS = {
     caret: S('<path d="M6 4l4 4-4 4"/>'),
+    navBack: S('<path d="M10 4l-4 4 4 4"/>'),
+    navFwd: S('<path d="M6 4l4 4-4 4"/>'),
     alignLeft: bars("M2.5 2.5v11", 'x="4.5" y="4.5" width="8" height="2.5"', 'x="4.5" y="9" width="5" height="2.5"'),
     alignHCenter: bars("M8 2.5v11", 'x="3.5" y="4.5" width="9" height="2.5"', 'x="5.5" y="9" width="5" height="2.5"'),
     alignRight: bars("M13.5 2.5v11", 'x="3" y="4.5" width="8" height="2.5"', 'x="6" y="9" width="5" height="2.5"'),
@@ -609,7 +629,34 @@
     }
   }
 
-  window.onmessage = (e) => { const msg = e.data.pluginMessage; if (msg && msg.type === "selection") update(msg.snapshot); };
+  window.onmessage = (e) => {
+    const msg = e.data.pluginMessage;
+    if (!msg) return;
+    if (msg.type === "selection") update(msg.snapshot);
+    else if (msg.type === "pages") updateNav(msg);
+  };
+
+  // ---------- page navigation ----------
+  const navBack = document.getElementById("navBack");
+  const navFwd = document.getElementById("navFwd");
+  const pageSel = document.getElementById("pageSel");
+  navBack.innerHTML = ICONS.navBack;
+  navFwd.innerHTML = ICONS.navFwd;
+  navBack.onclick = () => post({ type: "nav-back" });
+  navFwd.onclick = () => post({ type: "nav-forward" });
+  pageSel.onchange = () => post({ type: "set-page", id: pageSel.value });
+
+  function updateNav(msg) {
+    const pages = msg.pages || [];
+    pageSel.innerHTML = "";
+    for (const p of pages) {
+      const o = el("option"); o.value = p.id; o.textContent = p.name || "Page"; pageSel.appendChild(o);
+    }
+    pageSel.value = msg.currentId;
+    navBack.disabled = !msg.canBack;
+    navFwd.disabled = !msg.canForward;
+  }
+
 
   // ---------- drag to resize ----------
   (function () {

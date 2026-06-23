@@ -583,3 +583,26 @@ export async function runCommand(name: string): Promise<void> {
     alignSelection(name);
   }
 }
+
+// ---------- page navigation ----------
+
+export interface PageInfo {
+  id: string;
+  name: string;
+}
+
+// Reading id/name of root.children is allowed in dynamic-page mode without loading.
+export function listPages(): PageInfo[] {
+  return figma.root.children.map((p) => ({ id: p.id, name: p.name }));
+}
+
+export function currentPageId(): string {
+  return figma.currentPage.id;
+}
+
+export async function gotoPage(id: string): Promise<void> {
+  const node = await figma.getNodeByIdAsync(id);
+  if (node && node.type === "PAGE") {
+    await figma.setCurrentPageAsync(node as PageNode);
+  }
+}

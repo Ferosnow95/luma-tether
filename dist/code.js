@@ -542,6 +542,15 @@
       alignSelection(name);
     }
   }
+  function listPages() {
+    return figma.root.children.map((p) => ({ id: p.id, name: p.name }));
+  }
+  async function gotoPage(id) {
+    const node = await figma.getNodeByIdAsync(id);
+    if (node && node.type === "PAGE") {
+      await figma.setCurrentPageAsync(node);
+    }
+  }
 
   // src/code.ts
   figma.showUI(__html__, {
@@ -553,8 +562,41 @@
   function pushSelection() {
     figma.ui.postMessage({ type: "selection", snapshot: getSnapshot() });
   }
+  var history = [];
+  var histIndex = -1;
+  var navigating = false;
+  function pushNav() {
+    figma.ui.postMessage({
+      type: "pages",
+      pages: listPages(),
+      currentId: figma.currentPage.id,
+      canBack: histIndex > 0,
+      canForward: histIndex < history.length - 1
+    });
+  }
+  function recordPage() {
+    const id = figma.currentPage.id;
+    if (histIndex >= 0 && history[histIndex] === id) return;
+    history = history.slice(0, histIndex + 1);
+    history.push(id);
+    histIndex = history.length - 1;
+  }
+  async function navTo(index) {
+    if (index < 0 || index >= history.length) return;
+    histIndex = index;
+    navigating = true;
+    await gotoPage(history[histIndex]);
+  }
   figma.on("selectionchange", pushSelection);
+  figma.on("currentpagechange", () => {
+    if (navigating) navigating = false;
+    else recordPage();
+    pushSelection();
+    pushNav();
+  });
+  recordPage();
   pushSelection();
+  pushNav();
   figma.ui.onmessage = async (msg) => {
     try {
       switch (msg.type) {
@@ -566,6 +608,18 @@
         case "command": {
           await runCommand(msg.name);
           pushSelection();
+          break;
+        }
+        case "set-page": {
+          await gotoPage(msg.id);
+          break;
+        }
+        case "nav-back": {
+          await navTo(histIndex - 1);
+          break;
+        }
+        case "nav-forward": {
+          await navTo(histIndex + 1);
           break;
         }
         case "drag": {
@@ -580,6 +634,7 @@
         }
         case "refresh": {
           pushSelection();
+          pushNav();
           break;
         }
         case "close": {
