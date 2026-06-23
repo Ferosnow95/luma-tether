@@ -1,6 +1,6 @@
 /// <reference types="@figma/plugin-typings" />
 
-import { getSnapshot, applyField, runCommand, listPages, gotoPage, applyList } from "./actions";
+import { getSnapshot, applyField, runCommand, listPages, gotoPage, applyList, reorderPage } from "./actions";
 
 figma.showUI(__html__, {
   width: 264,
@@ -77,6 +77,11 @@ figma.ui.onmessage = async (msg: any) => {
       }
       case "set-page": {
         await gotoPage(msg.id);
+        break;
+      }
+      case "reorder-page": {
+        await reorderPage(msg.id, msg.index);
+        pushNav();
         break;
       }
       case "nav-back": {

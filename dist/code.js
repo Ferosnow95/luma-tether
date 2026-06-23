@@ -609,6 +609,13 @@
       await figma.setCurrentPageAsync(node);
     }
   }
+  async function reorderPage(id, newIndex) {
+    const node = await figma.getNodeByIdAsync(id);
+    if (!node || node.type !== "PAGE") return;
+    const max = figma.root.children.length - 1;
+    const idx = Math.max(0, Math.min(Math.round(newIndex), max));
+    figma.root.insertChild(idx, node);
+  }
   function defaultEffect(type) {
     if (type === "LAYER_BLUR" || type === "BACKGROUND_BLUR") {
       return { type, radius: 4, visible: true };
@@ -804,6 +811,11 @@
         }
         case "set-page": {
           await gotoPage(msg.id);
+          break;
+        }
+        case "reorder-page": {
+          await reorderPage(msg.id, msg.index);
+          pushNav();
           break;
         }
         case "nav-back": {

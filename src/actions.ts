@@ -700,6 +700,14 @@ export async function gotoPage(id: string): Promise<void> {
   }
 }
 
+export async function reorderPage(id: string, newIndex: number): Promise<void> {
+  const node = await figma.getNodeByIdAsync(id);
+  if (!node || node.type !== "PAGE") return;
+  const max = figma.root.children.length - 1;
+  const idx = Math.max(0, Math.min(Math.round(newIndex), max));
+  figma.root.insertChild(idx, node as PageNode);
+}
+
 // ---------- list editing (effects / grids / exports) ----------
 
 function defaultEffect(type: string): any {

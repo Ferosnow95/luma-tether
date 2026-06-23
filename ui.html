@@ -27,7 +27,7 @@
     color: var(--text); background: var(--bg);
     -webkit-user-select: none; user-select: none;
   }
-  body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; position: relative; }
 
   .i { width: 16px; height: 16px; display: block; }
 
@@ -174,11 +174,23 @@
     color: var(--icon); cursor: pointer; border-radius: 5px; display: flex; align-items: center; justify-content: center; padding: 0; }
   .nav-btn:hover:not(:disabled) { background: var(--bg-hover); }
   .nav-btn:disabled { color: var(--icon-muted); opacity: .4; cursor: default; }
-  .page-sel { flex: 1 1 auto; height: 24px; min-width: 0; padding: 0 6px;
-    background: var(--input); color: var(--text); border: 1px solid transparent; border-radius: 5px;
-    font-family: inherit; font-size: 11px; outline: none; cursor: pointer; }
-  .page-sel:hover { border-color: var(--stroke); }
-  .page-sel:focus { border-color: var(--brand); }
+  .page-toggle { flex: 1 1 auto; height: 24px; min-width: 0; display: flex; align-items: center; gap: 4px;
+    padding: 0 4px 0 8px; background: var(--input); color: var(--text); border: 1px solid transparent;
+    border-radius: 5px; font-family: inherit; font-size: 11px; outline: none; cursor: pointer; }
+  .page-toggle:hover { border-color: var(--stroke); }
+  .page-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+  .page-caret { flex: 0 0 auto; width: 16px; height: 16px; color: var(--icon-muted); display: flex; transition: transform .12s ease; }
+  #nav.open .page-caret { transform: rotate(180deg); }
+  .page-panel { position: absolute; left: 8px; right: 8px; top: 35px; z-index: 50; max-height: 240px; overflow-y: auto;
+    background: var(--bg); border: 1px solid var(--stroke); border-radius: 6px; box-shadow: 0 6px 22px rgba(0,0,0,.28); padding: 4px; }
+  .page-item { display: flex; align-items: center; gap: 4px; height: 28px; padding: 0 4px; border-radius: 5px;
+    cursor: pointer; user-select: none; touch-action: none; }
+  .page-item:hover { background: var(--bg-hover); }
+  .page-item.current { background: var(--bg-hover); }
+  .page-item.dragging { opacity: .65; background: var(--bg-hover); }
+  .page-grip { flex: 0 0 auto; width: 16px; height: 16px; color: var(--icon-muted); display: flex; align-items: center; justify-content: center; cursor: grab; }
+  .page-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .page-check { flex: 0 0 auto; width: 16px; height: 16px; color: var(--brand); display: flex; }
 
   /* ---------- footer / resize ---------- */
   #footer { flex: 0 0 auto; height: 16px; position: relative; background: var(--bg); }
@@ -191,8 +203,12 @@
   <div id="nav">
     <button id="navBack" class="nav-btn" title="Back (previous page)" disabled></button>
     <button id="navFwd" class="nav-btn" title="Forward" disabled></button>
-    <select id="pageSel" class="page-sel" title="Switch page"></select>
+    <button id="pageToggle" class="page-toggle" title="Pages">
+      <span id="pageName" class="page-name">Page</span>
+      <span id="pageCaret" class="page-caret"></span>
+    </button>
   </div>
+  <div id="pagePanel" class="page-panel hidden"></div>
   <div id="body">
     <div id="empty">Select a layer to inspect and edit its properties.</div>
     <div id="sections"></div>
@@ -212,6 +228,9 @@
   const bars = (guide, b1, b2) => S(`<path d="${guide}"/><rect ${b1} rx="1" fill="currentColor" stroke="none"/><rect ${b2} rx="1" fill="currentColor" stroke="none"/>`);
   const ICONS = {
     caret: S('<path d="M6 4l4 4-4 4"/>'),
+    caretDown: S('<path d="M4.5 6.5l3.5 3.5 3.5-3.5"/>'),
+    grip: S('<circle cx="6" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r="1" fill="currentColor" stroke="none"/>'),
+    check: S('<path d="M3.5 8.5l3 3 6-7"/>'),
     navBack: S('<path d="M10 4l-4 4 4 4"/>'),
     navFwd: S('<path d="M6 4l4 4-4 4"/>'),
     alignLeft: bars("M2.5 2.5v11", 'x="4.5" y="4.5" width="8" height="2.5"', 'x="4.5" y="9" width="5" height="2.5"'),
@@ -810,22 +829,86 @@
   // ---------- page navigation ----------
   const navBack = document.getElementById("navBack");
   const navFwd = document.getElementById("navFwd");
-  const pageSel = document.getElementById("pageSel");
+  const nav = document.getElementById("nav");
+  const pageToggle = document.getElementById("pageToggle");
+  const pageName = document.getElementById("pageName");
+  const pageCaret = document.getElementById("pageCaret");
+  const pagePanel = document.getElementById("pagePanel");
   navBack.innerHTML = ICONS.navBack;
   navFwd.innerHTML = ICONS.navFwd;
+  pageCaret.innerHTML = ICONS.caretDown;
   navBack.onclick = () => post({ type: "nav-back" });
   navFwd.onclick = () => post({ type: "nav-forward" });
-  pageSel.onchange = () => post({ type: "set-page", id: pageSel.value });
+
+  function openPanel() { nav.classList.add("open"); pagePanel.classList.remove("hidden"); }
+  function closePanel() { nav.classList.remove("open"); pagePanel.classList.add("hidden"); }
+  pageToggle.onclick = () => { pagePanel.classList.contains("hidden") ? openPanel() : closePanel(); };
+  document.addEventListener("pointerdown", (e) => {
+    if (pagePanel.classList.contains("hidden")) return;
+    if (!pagePanel.contains(e.target) && !pageToggle.contains(e.target)) closePanel();
+  }, true);
+
+  // drag a row to reorder pages; a click (no drag) switches to that page
+  function attachPageDrag(item) {
+    let startY = 0, dragging = false, downId = null;
+    item.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      downId = item.dataset.id; startY = e.clientY; dragging = false;
+      try { item.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    item.addEventListener("pointermove", (e) => {
+      if (downId == null) return;
+      if (!dragging && Math.abs(e.clientY - startY) < 4) return;
+      dragging = true; item.classList.add("dragging");
+      let placed = false;
+      for (const s of Array.from(pagePanel.children)) {
+        if (s === item) continue;
+        const r = s.getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { pagePanel.insertBefore(item, s); placed = true; break; }
+      }
+      if (!placed) pagePanel.appendChild(item);
+    });
+    const end = (e) => {
+      if (downId == null) return;
+      try { item.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (dragging) {
+        item.classList.remove("dragging");
+        const index = Array.from(pagePanel.children).indexOf(item);
+        post({ type: "reorder-page", id: downId, index });
+      } else {
+        post({ type: "set-page", id: downId });
+        closePanel();
+      }
+      downId = null; dragging = false;
+    };
+    item.addEventListener("pointerup", end);
+    item.addEventListener("pointercancel", end);
+  }
+
+  function buildPagePanel(pages, currentId) {
+    pagePanel.innerHTML = "";
+    for (const p of pages) {
+      const item = el("div", "page-item" + (p.id === currentId ? " current" : ""));
+      item.dataset.id = p.id;
+      const grip = el("span", "page-grip"); grip.innerHTML = ICONS.grip;
+      const label = el("span", "page-label"); label.textContent = p.name || "Page";
+      const check = el("span", "page-check"); if (p.id === currentId) check.innerHTML = ICONS.check;
+      item.append(grip, label, check);
+      attachPageDrag(item);
+      pagePanel.appendChild(item);
+    }
+  }
 
   function updateNav(msg) {
     const pages = msg.pages || [];
-    pageSel.innerHTML = "";
-    for (const p of pages) {
-      const o = el("option"); o.value = p.id; o.textContent = p.name || "Page"; pageSel.appendChild(o);
-    }
-    pageSel.value = msg.currentId;
     navBack.disabled = !msg.canBack;
     navFwd.disabled = !msg.canForward;
+    const cur = pages.find((p) => p.id === msg.currentId);
+    pageName.textContent = cur ? (cur.name || "Page") : "Page";
+    const sig = JSON.stringify(pages) + "|" + msg.currentId;
+    if (sig === pagePanel.dataset.sig) return;
+    pagePanel.dataset.sig = sig;
+    buildPagePanel(pages, msg.currentId);
   }
 
 
