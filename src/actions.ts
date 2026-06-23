@@ -212,6 +212,15 @@ const GETTERS: Record<string, Getter> = {
     return ls === figma.mixed ? figma.mixed : round(ls.value);
   },
   textAlignHorizontal: (n) => (n.type === "TEXT" ? n.textAlignHorizontal : undefined),
+  textAlignVertical: (n) => (n.type === "TEXT" ? n.textAlignVertical : undefined),
+  textAutoResize: (n) => (n.type === "TEXT" ? n.textAutoResize : undefined),
+  textCase: (n) => (n.type === "TEXT" ? (n.textCase === figma.mixed ? figma.mixed : n.textCase) : undefined),
+  textDecoration: (n) => (n.type === "TEXT" ? (n.textDecoration === figma.mixed ? figma.mixed : n.textDecoration) : undefined),
+  paragraphSpacing: (n) => {
+    if (n.type !== "TEXT") return undefined;
+    const ps = n.paragraphSpacing;
+    return ps === figma.mixed ? figma.mixed : round(ps);
+  },
 
   topLeftRadius: (n) => ("topLeftRadius" in n ? round((n as any).topLeftRadius) : undefined),
   topRightRadius: (n) => ("topRightRadius" in n ? round((n as any).topRightRadius) : undefined),
@@ -454,6 +463,21 @@ async function applyText(n: SceneNode, field: string, value: unknown): Promise<v
         t.lineHeight = { value: num(value), unit: "PIXELS" };
       }
       break;
+    case "textAlignVertical":
+      t.textAlignVertical = value as TextNode["textAlignVertical"];
+      break;
+    case "textAutoResize":
+      t.textAutoResize = value as TextNode["textAutoResize"];
+      break;
+    case "textCase":
+      t.textCase = value as TextNode["textCase"];
+      break;
+    case "textDecoration":
+      t.textDecoration = value as TextNode["textDecoration"];
+      break;
+    case "paragraphSpacing":
+      t.paragraphSpacing = Math.max(0, num(value));
+      break;
   }
 }
 
@@ -583,6 +607,11 @@ async function applyToNode(n: SceneNode, field: string, value: unknown): Promise
     case "textAlignHorizontal":
     case "letterSpacing":
     case "lineHeight":
+    case "textAlignVertical":
+    case "textAutoResize":
+    case "textCase":
+    case "textDecoration":
+    case "paragraphSpacing":
       await applyText(n, field, value);
       break;
   }

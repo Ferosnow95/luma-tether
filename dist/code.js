@@ -161,6 +161,15 @@
       return ls === figma.mixed ? figma.mixed : round(ls.value);
     },
     textAlignHorizontal: (n) => n.type === "TEXT" ? n.textAlignHorizontal : void 0,
+    textAlignVertical: (n) => n.type === "TEXT" ? n.textAlignVertical : void 0,
+    textAutoResize: (n) => n.type === "TEXT" ? n.textAutoResize : void 0,
+    textCase: (n) => n.type === "TEXT" ? n.textCase === figma.mixed ? figma.mixed : n.textCase : void 0,
+    textDecoration: (n) => n.type === "TEXT" ? n.textDecoration === figma.mixed ? figma.mixed : n.textDecoration : void 0,
+    paragraphSpacing: (n) => {
+      if (n.type !== "TEXT") return void 0;
+      const ps = n.paragraphSpacing;
+      return ps === figma.mixed ? figma.mixed : round(ps);
+    },
     topLeftRadius: (n) => "topLeftRadius" in n ? round(n.topLeftRadius) : void 0,
     topRightRadius: (n) => "topRightRadius" in n ? round(n.topRightRadius) : void 0,
     bottomLeftRadius: (n) => "bottomLeftRadius" in n ? round(n.bottomLeftRadius) : void 0,
@@ -368,6 +377,21 @@
           t.lineHeight = { value: num(value), unit: "PIXELS" };
         }
         break;
+      case "textAlignVertical":
+        t.textAlignVertical = value;
+        break;
+      case "textAutoResize":
+        t.textAutoResize = value;
+        break;
+      case "textCase":
+        t.textCase = value;
+        break;
+      case "textDecoration":
+        t.textDecoration = value;
+        break;
+      case "paragraphSpacing":
+        t.paragraphSpacing = Math.max(0, num(value));
+        break;
     }
   }
   async function applyToNode(n, field, value) {
@@ -490,6 +514,11 @@
       case "textAlignHorizontal":
       case "letterSpacing":
       case "lineHeight":
+      case "textAlignVertical":
+      case "textAutoResize":
+      case "textCase":
+      case "textDecoration":
+      case "paragraphSpacing":
         await applyText(n, field, value);
         break;
     }
@@ -757,6 +786,8 @@
     figma.ui.postMessage({ type: "selection", snapshot: getSnapshot() });
   }
   var follow = false;
+  var uiW = 264;
+  var uiH = 640;
   function selectionBounds() {
     const sel = figma.currentPage.selection;
     if (sel.length === 0) return null;
@@ -776,18 +807,40 @@
     if (!follow) return;
     const b = selectionBounds();
     if (!b) return;
-    let pos;
-    try {
-      pos = figma.ui.getPosition();
-    } catch (e) {
-      return;
-    }
     const zoom = figma.viewport.zoom;
-    const W = pos.windowSpace, C = pos.canvasSpace;
+    const vb = figma.viewport.bounds;
     const GAP = 16;
-    const winX = W.x + (b.x + b.width - C.x) * zoom + GAP;
-    const winY = W.y + (b.y - C.y) * zoom;
-    figma.ui.reposition(Math.max(8, Math.round(winX)), Math.max(8, Math.round(winY)));
+    let pos = null;
+    try {
+      if (typeof figma.ui.getPosition === "function") pos = figma.ui.getPosition();
+    } catch (e) {
+      pos = null;
+    }
+    let x, y, minX, minY, maxX, maxY;
+    if (pos) {
+      const W = pos.windowSpace, C = pos.canvasSpace;
+      const wx = (cx) => W.x + (cx - C.x) * zoom;
+      const wy = (cy) => W.y + (cy - C.y) * zoom;
+      minX = wx(vb.x) + 8;
+      minY = wy(vb.y) + 8;
+      maxX = wx(vb.x + vb.width) - 8;
+      maxY = wy(vb.y + vb.height) - 8;
+      x = wx(b.x + b.width) + GAP;
+      if (x + uiW > maxX) x = wx(b.x) - GAP - uiW;
+      y = wy(b.y);
+    } else {
+      const viewW = vb.width * zoom, viewH = vb.height * zoom;
+      minX = 8;
+      minY = 8;
+      maxX = viewW - 8;
+      maxY = viewH - 8;
+      x = (b.x + b.width - vb.x) * zoom + GAP;
+      if (x + uiW > maxX) x = (b.x - vb.x) * zoom - GAP - uiW;
+      y = (b.y - vb.y) * zoom;
+    }
+    x = Math.max(minX, Math.min(x, maxX - uiW));
+    y = Math.max(minY, Math.min(y, maxY - uiH));
+    figma.ui.reposition(Math.round(x), Math.round(y));
   }
   var history = [];
   var histIndex = -1;
@@ -874,6 +927,8 @@
         case "resize": {
           const w = Math.max(240, Math.round(msg.width));
           const h = Math.max(240, Math.round(msg.height));
+          uiW = w;
+          uiH = h;
           figma.ui.resize(w, h);
           break;
         }

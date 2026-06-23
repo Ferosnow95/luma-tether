@@ -153,6 +153,14 @@
 
   .hidden { display: none !important; }
 
+  /* ---------- entrance animation ---------- */
+  @keyframes tetherIn { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+  @keyframes tetherFade { from { opacity: 0; } to { opacity: 1; } }
+  #sections.anim { animation: tetherIn .19s cubic-bezier(.22,.61,.36,1); }
+  body.ready #nav { animation: tetherFade .25s ease both; }
+  body.ready #body { animation: tetherIn .24s cubic-bezier(.22,.61,.36,1) both; }
+  @media (prefers-reduced-motion: reduce) { #sections.anim, body.ready #nav, body.ready #body { animation: none; } }
+
   /* ---------- list sections (effects / grids / exports) ---------- */
   .sec-add { width: 22px; height: 22px; flex: 0 0 auto; border: none; background: transparent;
     color: var(--icon); cursor: pointer; border-radius: 5px; display: flex; align-items: center; justify-content: center; padding: 0; }
@@ -596,6 +604,10 @@
   const CH = [{ val: "MIN", label: "Left" }, { val: "CENTER", label: "Center" }, { val: "MAX", label: "Right" }, { val: "STRETCH", label: "Left & right" }, { val: "SCALE", label: "Scale" }];
   const CV = [{ val: "MIN", label: "Top" }, { val: "CENTER", label: "Center" }, { val: "MAX", label: "Bottom" }, { val: "STRETCH", label: "Top & bottom" }, { val: "SCALE", label: "Scale" }];
   const STROKE_ALIGN = [{ val: "INSIDE", label: "Inside" }, { val: "CENTER", label: "Center" }, { val: "OUTSIDE", label: "Outside" }];
+  const TCASE = [{ val: "ORIGINAL", label: "As typed" }, { val: "UPPER", label: "Uppercase" }, { val: "LOWER", label: "Lowercase" }, { val: "TITLE", label: "Title case" }];
+  const TDECO = [{ val: "NONE", label: "No decoration" }, { val: "UNDERLINE", label: "Underline" }, { val: "STRIKETHROUGH", label: "Strikethrough" }];
+  const TVALIGN = [{ val: "TOP", label: "Align top" }, { val: "CENTER", label: "Align middle" }, { val: "BOTTOM", label: "Align bottom" }];
+  const TRESIZE = [{ val: "NONE", label: "Fixed size" }, { val: "HEIGHT", label: "Auto height" }, { val: "WIDTH_AND_HEIGHT", label: "Auto width" }, { val: "TRUNCATE", label: "Truncate" }];
 
   // ---------- list sections: effects / layout grids / exports ----------
   const EFFECT_TYPES = [
@@ -799,12 +811,14 @@
     fx.add(listBlock("effects", effectRow));
 
     const text = makeSection("Text");
-    text.add(rowGrid([numCell("fontSize", "S"), numCell("lineHeight", "H")]));
-    text.add(rowGrid([numCell("letterSpacing", "LS"), spacer()]));
+    text.add(rowGrid([numCell("fontSize", "S"), numCell("lineHeight", "LH")]));
+    text.add(rowGrid([numCell("letterSpacing", "LS"), numCell("paragraphSpacing", "PS")]));
     text.add(group("Alignment", [segmented("textAlignHorizontal", [
       { val: "LEFT", icon: ICONS.taL }, { val: "CENTER", icon: ICONS.taC },
       { val: "RIGHT", icon: ICONS.taR }, { val: "JUSTIFIED", icon: ICONS.taJ },
     ], true)]));
+    text.add(rowGrid([selectField("textAlignVertical", TVALIGN), selectField("textAutoResize", TRESIZE)]));
+    text.add(rowGrid([selectField("textCase", TCASE), selectField("textDecoration", TDECO)]));
 
     const guide = makeSection("Layout guide", true, () => list("grids", "add", {}));
     guide.add(listBlock("grids", gridRow));
@@ -816,15 +830,25 @@
   }
 
   // ===================== update =====================
+  let lastSelKey = "";
   function update(snap) {
     const hasSel = snap.count > 0;
     document.getElementById("empty").classList.toggle("hidden", hasSel);
-    document.getElementById("sections").classList.toggle("hidden", !hasSel);
-    if (!hasSel) return;
+    const sectionsEl = document.getElementById("sections");
+    sectionsEl.classList.toggle("hidden", !hasSel);
+    if (!hasSel) { lastSelKey = ""; return; }
     for (const sec of sections) {
       let vis = false;
       for (const b of sec.blocks) { if (b.update(snap)) vis = true; }
       sec.wrap.classList.toggle("hidden", !vis);
+    }
+    // animate only when the selection identity changes (not on every property edit)
+    const key = snap.count + "|" + snap.type + "|" + snap.name;
+    if (key !== lastSelKey) {
+      lastSelKey = key;
+      sectionsEl.classList.remove("anim");
+      void sectionsEl.offsetWidth;
+      sectionsEl.classList.add("anim");
     }
   }
 
@@ -937,6 +961,7 @@
   })();
 
   buildPanel();
+  document.body.classList.add("ready");
 </script>
 </body>
 </html>

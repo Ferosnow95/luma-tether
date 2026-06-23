@@ -15,6 +15,8 @@ function pushSelection(): void {
 
 // ---------- follow selection (snap window beside the selected frame) ----------
 let follow = false;
+let uiW = 264;
+let uiH = 640;
 
 function selectionBounds(): Rect | null {
   const sel = figma.currentPage.selection;
@@ -30,24 +32,47 @@ function selectionBounds(): Rect | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-// Place the plugin window just to the right of the current selection. Uses
-// getPosition() to derive the canvas->window transform (no viewport-origin guessing).
+// Place the plugin window just to the right of the current selection (left side if
+// there isn't room). Prefers the exact getPosition() transform; if that API isn't
+// available, falls back to a viewport-only mapping. Always clamped on-screen.
 function snapToSelection(): void {
   if (!follow) return;
   const b = selectionBounds();
   if (!b) return;
-  let pos: { windowSpace: Vector; canvasSpace: Vector };
-  try {
-    pos = figma.ui.getPosition();
-  } catch (e) {
-    return;
-  }
   const zoom = figma.viewport.zoom;
-  const W = pos.windowSpace, C = pos.canvasSpace;
+  const vb = figma.viewport.bounds;
   const GAP = 16;
-  const winX = W.x + (b.x + b.width - C.x) * zoom + GAP;
-  const winY = W.y + (b.y - C.y) * zoom;
-  figma.ui.reposition(Math.max(8, Math.round(winX)), Math.max(8, Math.round(winY)));
+
+  let pos: { windowSpace: Vector; canvasSpace: Vector } | null = null;
+  try {
+    if (typeof figma.ui.getPosition === "function") pos = figma.ui.getPosition();
+  } catch (e) {
+    pos = null;
+  }
+
+  let x: number, y: number, minX: number, minY: number, maxX: number, maxY: number;
+  if (pos) {
+    // exact: map canvas -> window space using the known anchor correspondence
+    const W = pos.windowSpace, C = pos.canvasSpace;
+    const wx = (cx: number) => W.x + (cx - C.x) * zoom;
+    const wy = (cy: number) => W.y + (cy - C.y) * zoom;
+    minX = wx(vb.x) + 8; minY = wy(vb.y) + 8;
+    maxX = wx(vb.x + vb.width) - 8; maxY = wy(vb.y + vb.height) - 8;
+    x = wx(b.x + b.width) + GAP;
+    if (x + uiW > maxX) x = wx(b.x) - GAP - uiW; // not enough room right -> go left
+    y = wy(b.y);
+  } else {
+    // fallback: reposition origin assumed to be the canvas viewport's top-left
+    const viewW = vb.width * zoom, viewH = vb.height * zoom;
+    minX = 8; minY = 8; maxX = viewW - 8; maxY = viewH - 8;
+    x = (b.x + b.width - vb.x) * zoom + GAP;
+    if (x + uiW > maxX) x = (b.x - vb.x) * zoom - GAP - uiW;
+    y = (b.y - vb.y) * zoom;
+  }
+
+  x = Math.max(minX, Math.min(x, maxX - uiW));
+  y = Math.max(minY, Math.min(y, maxY - uiH));
+  figma.ui.reposition(Math.round(x), Math.round(y));
 }
 
 // ---------- page navigation + history ----------
@@ -144,6 +169,8 @@ figma.ui.onmessage = async (msg: any) => {
       case "resize": {
         const w = Math.max(240, Math.round(msg.width));
         const h = Math.max(240, Math.round(msg.height));
+        uiW = w;
+        uiH = h;
         figma.ui.resize(w, h);
         break;
       }
