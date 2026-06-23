@@ -1,6 +1,6 @@
 /// <reference types="@figma/plugin-typings" />
 
-import { getSnapshot, applyField, runCommand, listPages, gotoPage } from "./actions";
+import { getSnapshot, applyField, runCommand, listPages, gotoPage, applyList } from "./actions";
 
 figma.showUI(__html__, {
   width: 264,
@@ -67,6 +67,11 @@ figma.ui.onmessage = async (msg: any) => {
       }
       case "command": {
         await runCommand(msg.name);
+        pushSelection();
+        break;
+      }
+      case "list": {
+        await applyList(msg.kind, msg.action, msg.payload || {});
         pushSelection();
         break;
       }

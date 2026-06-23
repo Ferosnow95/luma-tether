@@ -16,6 +16,38 @@ export interface Snapshot {
   name: string;
   type: string;
   fields: Record<string, Field>;
+  effects?: EffectRow[];
+  grids?: GridRow[];
+  exports?: ExportRow[];
+}
+
+// List rows (single-selection only; null/undefined => section not shown).
+export interface EffectRow {
+  type: string; // DROP_SHADOW | INNER_SHADOW | LAYER_BLUR | BACKGROUND_BLUR
+  visible: boolean;
+  color?: string;
+  opacity?: number; // shadow color alpha, 0-100
+  x?: number;
+  y?: number;
+  radius: number;
+  spread?: number;
+}
+
+export interface GridRow {
+  pattern: string; // COLUMNS | ROWS | GRID
+  visible: boolean;
+  color?: string;
+  sectionSize?: number; // GRID cell size, or COLUMNS/ROWS width/height
+  count?: number;
+  gutterSize?: number;
+  offset?: number;
+  alignment?: string; // MIN | STRETCH | CENTER | MAX
+}
+
+export interface ExportRow {
+  format: string; // PNG | JPG | SVG | PDF
+  suffix: string;
+  scale?: number; // PNG/JPG only
 }
 
 // ---------- small helpers ----------
@@ -231,7 +263,68 @@ export function getSnapshot(): Snapshot {
   const types = new Set(sel.map((n) => n.type));
   const type = sel.length === 0 ? "" : types.size === 1 ? sel[0].type : "Mixed";
 
-  return { count: sel.length, name, type, fields };
+  return {
+    count: sel.length,
+    name,
+    type,
+    fields,
+    effects: readEffects(),
+    grids: readGrids(),
+    exports: readExports(),
+  };
+}
+
+// ---------- list readers (single selection) ----------
+
+function singleNode(): SceneNode | null {
+  const sel = figma.currentPage.selection;
+  return sel.length === 1 ? sel[0] : null;
+}
+
+function readEffects(): EffectRow[] | undefined {
+  const n = singleNode() as any;
+  if (!n || !("effects" in n)) return undefined;
+  const effs = n.effects;
+  if (effs === figma.mixed || !Array.isArray(effs)) return undefined;
+  return effs.map((e: any) => ({
+    type: e.type,
+    visible: e.visible !== false,
+    color: e.color ? rgbToHex(e.color) : undefined,
+    opacity: e.color && typeof e.color.a === "number" ? round(e.color.a * 100) : undefined,
+    x: e.offset ? round(e.offset.x) : undefined,
+    y: e.offset ? round(e.offset.y) : undefined,
+    radius: round(e.radius ?? 0),
+    spread: typeof e.spread === "number" ? round(e.spread) : undefined,
+  }));
+}
+
+function readGrids(): GridRow[] | undefined {
+  const n = singleNode() as any;
+  if (!n || !("layoutGrids" in n)) return undefined;
+  const grids = n.layoutGrids;
+  if (!Array.isArray(grids)) return undefined;
+  return grids.map((g: any) => ({
+    pattern: g.pattern,
+    visible: g.visible !== false,
+    color: g.color ? rgbToHex(g.color) : undefined,
+    sectionSize: typeof g.sectionSize === "number" ? round(g.sectionSize) : undefined,
+    count: typeof g.count === "number" && isFinite(g.count) ? g.count : undefined,
+    gutterSize: typeof g.gutterSize === "number" ? round(g.gutterSize) : undefined,
+    offset: typeof g.offset === "number" ? round(g.offset) : undefined,
+    alignment: g.alignment,
+  }));
+}
+
+function readExports(): ExportRow[] | undefined {
+  const n = singleNode() as any;
+  if (!n || !("exportSettings" in n)) return undefined;
+  const ex = n.exportSettings;
+  if (!Array.isArray(ex)) return undefined;
+  return ex.map((s: any) => ({
+    format: s.format,
+    suffix: s.suffix || "",
+    scale: s.constraint && s.constraint.type === "SCALE" ? s.constraint.value : undefined,
+  }));
 }
 
 // ---------- writing ----------
@@ -604,5 +697,146 @@ export async function gotoPage(id: string): Promise<void> {
   const node = await figma.getNodeByIdAsync(id);
   if (node && node.type === "PAGE") {
     await figma.setCurrentPageAsync(node as PageNode);
+  }
+}
+
+// ---------- list editing (effects / grids / exports) ----------
+
+function defaultEffect(type: string): any {
+  if (type === "LAYER_BLUR" || type === "BACKGROUND_BLUR") {
+    return { type, radius: 4, visible: true };
+  }
+  return {
+    type,
+    color: { r: 0, g: 0, b: 0, a: 0.25 },
+    offset: { x: 0, y: 4 },
+    radius: 4,
+    spread: 0,
+    visible: true,
+    blendMode: "NORMAL",
+  };
+}
+
+function patchEffect(e: any, key: string, value: unknown): any {
+  const c: any = { ...e, color: e.color ? { ...e.color } : undefined, offset: e.offset ? { ...e.offset } : undefined };
+  switch (key) {
+    case "color": {
+      const rgb = hexToRgb(String(value));
+      c.color = { r: rgb.r, g: rgb.g, b: rgb.b, a: c.color ? c.color.a : 1 };
+      break;
+    }
+    case "opacity":
+      if (c.color) c.color = { ...c.color, a: clamp01(num(value) / 100) };
+      break;
+    case "x":
+      if (c.offset) c.offset = { x: num(value), y: c.offset.y };
+      break;
+    case "y":
+      if (c.offset) c.offset = { x: c.offset.x, y: num(value) };
+      break;
+    case "radius":
+      c.radius = Math.max(0, num(value));
+      break;
+    case "spread":
+      c.spread = num(value);
+      break;
+  }
+  return c;
+}
+
+function defaultGrid(pattern: string): any {
+  const color = { r: 1, g: 0, b: 0, a: 0.1 };
+  if (pattern === "GRID") return { pattern: "GRID", visible: true, color, sectionSize: 8 };
+  return { pattern, visible: true, color, alignment: "STRETCH", gutterSize: 20, count: 5, sectionSize: 60, offset: 0 };
+}
+
+function patchGrid(g: any, key: string, value: unknown): any {
+  const c: any = { ...g, color: g.color ? { ...g.color } : undefined };
+  switch (key) {
+    case "color": {
+      const rgb = hexToRgb(String(value));
+      c.color = { r: rgb.r, g: rgb.g, b: rgb.b, a: c.color ? c.color.a : 0.1 };
+      break;
+    }
+    case "count":
+      c.count = Math.max(1, Math.round(num(value)));
+      break;
+    case "gutterSize":
+      c.gutterSize = Math.max(0, num(value));
+      break;
+    case "sectionSize":
+      c.sectionSize = Math.max(1, num(value));
+      break;
+    case "offset":
+      c.offset = num(value);
+      break;
+    case "alignment":
+      c.alignment = String(value);
+      break;
+  }
+  return c;
+}
+
+function defaultExport(format: string): any {
+  if (format === "SVG" || format === "PDF") return { format, suffix: "", contentsOnly: true };
+  return { format, suffix: "", constraint: { type: "SCALE", value: 1 }, contentsOnly: true };
+}
+
+function patchExport(s: any, key: string, value: unknown): any {
+  const c: any = { ...s, constraint: s.constraint ? { ...s.constraint } : undefined };
+  switch (key) {
+    case "suffix":
+      c.suffix = String(value);
+      break;
+    case "scale":
+      c.constraint = { type: "SCALE", value: Math.max(0.01, num(value)) };
+      break;
+  }
+  return c;
+}
+
+// kind: "effects" | "grids" | "exports"
+export async function applyList(kind: string, action: string, payload: any): Promise<void> {
+  const prop = kind === "effects" ? "effects" : kind === "grids" ? "layoutGrids" : "exportSettings";
+  const mk = kind === "effects" ? defaultEffect : kind === "grids" ? defaultGrid : defaultExport;
+  const patch = kind === "effects" ? patchEffect : kind === "grids" ? patchGrid : patchExport;
+  const newType = payload.etype || (kind === "exports" ? "PNG" : kind === "grids" ? "COLUMNS" : "DROP_SHADOW");
+
+  const sel = figma.currentPage.selection;
+  if (sel.length === 0) throw new Error("Select a layer first.");
+  for (const n of sel as any[]) {
+    if (!(prop in n)) continue;
+    try {
+      const cur = n[prop];
+      const arr: any[] = cur === figma.mixed || !Array.isArray(cur) ? [] : clone(cur);
+      const i = payload.index;
+      switch (action) {
+        case "add":
+          arr.push(mk(newType));
+          break;
+        case "remove":
+          if (i >= 0 && i < arr.length) arr.splice(i, 1);
+          break;
+        case "toggle":
+          if (arr[i]) arr[i] = { ...arr[i], visible: !(arr[i].visible !== false) };
+          break;
+        case "type": {
+          if (arr[i]) {
+            const prev = arr[i];
+            const next = mk(newType);
+            next.visible = prev.visible;
+            if (kind === "effects" && typeof prev.radius === "number") next.radius = prev.radius;
+            arr[i] = next;
+          }
+          break;
+        }
+        case "param":
+          if (arr[i]) arr[i] = patch(arr[i], payload.key, payload.value);
+          break;
+      }
+      n[prop] = arr;
+    } catch {
+      // skip nodes that reject this list op
+    }
   }
 }

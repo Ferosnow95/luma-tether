@@ -202,7 +202,65 @@
     const name = sel.length === 0 ? "" : sel.length === 1 ? sel[0].name : `${sel.length} layers`;
     const types = new Set(sel.map((n) => n.type));
     const type = sel.length === 0 ? "" : types.size === 1 ? sel[0].type : "Mixed";
-    return { count: sel.length, name, type, fields };
+    return {
+      count: sel.length,
+      name,
+      type,
+      fields,
+      effects: readEffects(),
+      grids: readGrids(),
+      exports: readExports()
+    };
+  }
+  function singleNode() {
+    const sel = figma.currentPage.selection;
+    return sel.length === 1 ? sel[0] : null;
+  }
+  function readEffects() {
+    const n = singleNode();
+    if (!n || !("effects" in n)) return void 0;
+    const effs = n.effects;
+    if (effs === figma.mixed || !Array.isArray(effs)) return void 0;
+    return effs.map((e) => {
+      var _a;
+      return {
+        type: e.type,
+        visible: e.visible !== false,
+        color: e.color ? rgbToHex(e.color) : void 0,
+        opacity: e.color && typeof e.color.a === "number" ? round(e.color.a * 100) : void 0,
+        x: e.offset ? round(e.offset.x) : void 0,
+        y: e.offset ? round(e.offset.y) : void 0,
+        radius: round((_a = e.radius) != null ? _a : 0),
+        spread: typeof e.spread === "number" ? round(e.spread) : void 0
+      };
+    });
+  }
+  function readGrids() {
+    const n = singleNode();
+    if (!n || !("layoutGrids" in n)) return void 0;
+    const grids = n.layoutGrids;
+    if (!Array.isArray(grids)) return void 0;
+    return grids.map((g) => ({
+      pattern: g.pattern,
+      visible: g.visible !== false,
+      color: g.color ? rgbToHex(g.color) : void 0,
+      sectionSize: typeof g.sectionSize === "number" ? round(g.sectionSize) : void 0,
+      count: typeof g.count === "number" && isFinite(g.count) ? g.count : void 0,
+      gutterSize: typeof g.gutterSize === "number" ? round(g.gutterSize) : void 0,
+      offset: typeof g.offset === "number" ? round(g.offset) : void 0,
+      alignment: g.alignment
+    }));
+  }
+  function readExports() {
+    const n = singleNode();
+    if (!n || !("exportSettings" in n)) return void 0;
+    const ex = n.exportSettings;
+    if (!Array.isArray(ex)) return void 0;
+    return ex.map((s) => ({
+      format: s.format,
+      suffix: s.suffix || "",
+      scale: s.constraint && s.constraint.type === "SCALE" ? s.constraint.value : void 0
+    }));
   }
   function setSolidColor(n, key, value) {
     if (!(key in n)) return;
@@ -551,6 +609,135 @@
       await figma.setCurrentPageAsync(node);
     }
   }
+  function defaultEffect(type) {
+    if (type === "LAYER_BLUR" || type === "BACKGROUND_BLUR") {
+      return { type, radius: 4, visible: true };
+    }
+    return {
+      type,
+      color: { r: 0, g: 0, b: 0, a: 0.25 },
+      offset: { x: 0, y: 4 },
+      radius: 4,
+      spread: 0,
+      visible: true,
+      blendMode: "NORMAL"
+    };
+  }
+  function patchEffect(e, key, value) {
+    const c = __spreadProps(__spreadValues({}, e), { color: e.color ? __spreadValues({}, e.color) : void 0, offset: e.offset ? __spreadValues({}, e.offset) : void 0 });
+    switch (key) {
+      case "color": {
+        const rgb = hexToRgb(String(value));
+        c.color = { r: rgb.r, g: rgb.g, b: rgb.b, a: c.color ? c.color.a : 1 };
+        break;
+      }
+      case "opacity":
+        if (c.color) c.color = __spreadProps(__spreadValues({}, c.color), { a: clamp01(num(value) / 100) });
+        break;
+      case "x":
+        if (c.offset) c.offset = { x: num(value), y: c.offset.y };
+        break;
+      case "y":
+        if (c.offset) c.offset = { x: c.offset.x, y: num(value) };
+        break;
+      case "radius":
+        c.radius = Math.max(0, num(value));
+        break;
+      case "spread":
+        c.spread = num(value);
+        break;
+    }
+    return c;
+  }
+  function defaultGrid(pattern) {
+    const color = { r: 1, g: 0, b: 0, a: 0.1 };
+    if (pattern === "GRID") return { pattern: "GRID", visible: true, color, sectionSize: 8 };
+    return { pattern, visible: true, color, alignment: "STRETCH", gutterSize: 20, count: 5, sectionSize: 60, offset: 0 };
+  }
+  function patchGrid(g, key, value) {
+    const c = __spreadProps(__spreadValues({}, g), { color: g.color ? __spreadValues({}, g.color) : void 0 });
+    switch (key) {
+      case "color": {
+        const rgb = hexToRgb(String(value));
+        c.color = { r: rgb.r, g: rgb.g, b: rgb.b, a: c.color ? c.color.a : 0.1 };
+        break;
+      }
+      case "count":
+        c.count = Math.max(1, Math.round(num(value)));
+        break;
+      case "gutterSize":
+        c.gutterSize = Math.max(0, num(value));
+        break;
+      case "sectionSize":
+        c.sectionSize = Math.max(1, num(value));
+        break;
+      case "offset":
+        c.offset = num(value);
+        break;
+      case "alignment":
+        c.alignment = String(value);
+        break;
+    }
+    return c;
+  }
+  function defaultExport(format) {
+    if (format === "SVG" || format === "PDF") return { format, suffix: "", contentsOnly: true };
+    return { format, suffix: "", constraint: { type: "SCALE", value: 1 }, contentsOnly: true };
+  }
+  function patchExport(s, key, value) {
+    const c = __spreadProps(__spreadValues({}, s), { constraint: s.constraint ? __spreadValues({}, s.constraint) : void 0 });
+    switch (key) {
+      case "suffix":
+        c.suffix = String(value);
+        break;
+      case "scale":
+        c.constraint = { type: "SCALE", value: Math.max(0.01, num(value)) };
+        break;
+    }
+    return c;
+  }
+  async function applyList(kind, action, payload) {
+    const prop = kind === "effects" ? "effects" : kind === "grids" ? "layoutGrids" : "exportSettings";
+    const mk = kind === "effects" ? defaultEffect : kind === "grids" ? defaultGrid : defaultExport;
+    const patch = kind === "effects" ? patchEffect : kind === "grids" ? patchGrid : patchExport;
+    const newType = payload.etype || (kind === "exports" ? "PNG" : kind === "grids" ? "COLUMNS" : "DROP_SHADOW");
+    const sel = figma.currentPage.selection;
+    if (sel.length === 0) throw new Error("Select a layer first.");
+    for (const n of sel) {
+      if (!(prop in n)) continue;
+      try {
+        const cur = n[prop];
+        const arr = cur === figma.mixed || !Array.isArray(cur) ? [] : clone(cur);
+        const i = payload.index;
+        switch (action) {
+          case "add":
+            arr.push(mk(newType));
+            break;
+          case "remove":
+            if (i >= 0 && i < arr.length) arr.splice(i, 1);
+            break;
+          case "toggle":
+            if (arr[i]) arr[i] = __spreadProps(__spreadValues({}, arr[i]), { visible: !(arr[i].visible !== false) });
+            break;
+          case "type": {
+            if (arr[i]) {
+              const prev = arr[i];
+              const next = mk(newType);
+              next.visible = prev.visible;
+              if (kind === "effects" && typeof prev.radius === "number") next.radius = prev.radius;
+              arr[i] = next;
+            }
+            break;
+          }
+          case "param":
+            if (arr[i]) arr[i] = patch(arr[i], payload.key, payload.value);
+            break;
+        }
+        n[prop] = arr;
+      } catch (e) {
+      }
+    }
+  }
 
   // src/code.ts
   figma.showUI(__html__, {
@@ -607,6 +794,11 @@
         }
         case "command": {
           await runCommand(msg.name);
+          pushSelection();
+          break;
+        }
+        case "list": {
+          await applyList(msg.kind, msg.action, msg.payload || {});
           pushSelection();
           break;
         }
